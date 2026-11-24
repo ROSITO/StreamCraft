@@ -156,7 +156,7 @@ Références : `PRD_OpenStream.md`, `ARCHITECTURE.md`, `MEMORY.md`, `CLAUDE.md`.
 - [x] History UI complète (recherche, re-download si URL encore valide)
 - [x] Batch : file multi-URLs (médias + pages séquentielles)
 - [x] Règles d'automatisation simples (auto-enqueue HLS / DASH / MP4)
-- [x] API locale CLI (`openstream-cli` → inbox Application Support)
+- [x] API locale CLI (`streamcraft` → inbox Application Support)
 - [x] Tests unitaires productivité (history / batch / rules / command JSON)
 
 **Done quand :** un utilisateur power-user peut enchaîner plusieurs téléchargements et rejouer l'historique.  
@@ -228,3 +228,39 @@ Phase 5 (durcissement) → 6 → 7 → 8 → 9 (gate DRM, release publique)
 
 Ne pas implémenter DASH, plugins, ou API tant que le chemin Phase 1→4 n'est pas vert.  
 Ne pas publier en open source tant que la Phase 9 n'est pas verte.
+
+
+---
+
+## Rewrite Rust + Tauri (D020)
+
+### Phase R0 — Socle dépôt
+- [x] Workspace Cargo + Tauri 2 bootstrap
+- [x] Archive Swift → `archive/swift/`
+- [x] CI matrix macOS / Ubuntu / Windows
+- [x] Scripts FFmpeg multi-OS (`scripts/fetch-ffmpeg.sh`)
+- [x] D020 MEMORY / CLAUDE / ARCHITECTURE
+
+### Phase R1 — Domaine portable
+- [x] Modèles + HLS/DASH parsers + heuristics + export naming + PopupGuard
+- [x] Fixtures `fixtures/` + `cargo test -p openstream-core`
+
+### Phase R2 — Download + FFmpeg + CLI MVP
+- [x] Queue Tokio + reqwest stream disque
+- [x] Assemblage remux (HLS m3u8 locaux, DASH concat, progressive)
+- [x] `streamcraft` download/status/wait/cancel/fetch/season/flix + JSONL
+
+### Phase R3 — Navigateur GUI
+- [x] Shell Tauri React (browser / detected / settings)
+- [x] Commands bridge + hooks JS (D008) / PopupGuard
+- [x] Shell browser iframe MVP + hooks JS prêts ; multiwebview natif = itération UX
+
+### Phase R4 — Parité produit
+- [x] Prefs / history / flix / season scrape / DRM gate flag
+- [x] Pont `--via-app` TCP local (Ping + Fetch stub → scrape fallback)
+- [x] Favoris store Rust (`BookmarkStore`) ; batch UI à itérer
+
+### Phase R5 — Packaging
+- [x] CI build Tauri matrix
+- [x] Gate DRM dans CLI/core
+- [x] CI release workflow + bundle targets ; notarize/signing secrets = ops manuel

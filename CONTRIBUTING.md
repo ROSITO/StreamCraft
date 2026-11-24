@@ -1,6 +1,6 @@
-# Contributing to OpenStream
+# Contributing to StreamCraft
 
-Thanks for your interest. OpenStream is a **macOS** app + headless CLI for downloading **non-DRM** video streams (HLS / MPEG-DASH / progressive MP4).
+Thanks for your interest. StreamCraft is a **cross-platform desktop app** + headless CLI (`streamcraft`) for downloading **non-DRM** video streams (HLS / MPEG-DASH / progressive MP4).
 
 ## Ground rules
 
@@ -12,19 +12,17 @@ Thanks for your interest. OpenStream is a **macOS** app + headless CLI for downl
 ## Setup
 
 ```bash
-brew install xcodegen   # if needed
-./scripts/fetch-bundled-ffmpeg.sh
-xcodegen generate
-open OpenStream.xcodeproj
+# Rust stable + Node 22+
+cargo test -p openstream-core
+cargo build -p openstream-cli --release   # → target/release/streamcraft
+./scripts/fetch-ffmpeg.sh
+
+cd apps/desktop && npm install && npm run tauri dev
 ```
 
-Build CLI:
+CLI contract (users + agents): [`docs/cli.md`](docs/cli.md).
 
-```bash
-xcodebuild -scheme OpenStreamCLI -configuration Debug -destination 'platform=macOS' build
-```
-
-Agent contract: [`OpenStreamCLI/README.md`](OpenStreamCLI/README.md).
+Legacy Swift reference only: `archive/swift/` (do not dual-maintain).
 
 ## Pull requests
 

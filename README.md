@@ -1,92 +1,104 @@
-# OpenStream
+# StreamCraft
 
-Application **macOS** native pour télécharger des flux vidéo **non protégés** (HLS, MPEG-DASH, MP4 progressif) depuis un navigateur intégré, puis les assembler en MP4.
+Desktop app (**macOS · Windows · Linux**) to download **clear** video streams (HLS, MPEG-DASH, progressive MP4) from an embedded browser, then remux to MP4 via bundled FFmpeg.
 
-CLI headless **`openstream-cli`** pour agents IA : détection, saison, digest **flix**, download/assemble — contrat dans [`OpenStreamCLI/README.md`](OpenStreamCLI/README.md).
+Headless CLI **`streamcraft`** for humans and AI agents: detect, season, flix digest, download/assemble — full contract in [`docs/cli.md`](docs/cli.md).
 
-> OpenStream **ne contourne pas** le DRM (Widevine, FairPlay, PlayReady) et ne déchiffre pas de flux chiffrés.
+> StreamCraft does **not** bypass DRM, captchas, or authentication.  
+> Cookies / referer only replay a session you already have in the browser.
 
-## Prérequis
+**Naming:** product = **StreamCraft**. Rust crates keep historical names `openstream-*`; the CLI **binary** is `streamcraft`.
 
-- macOS 14 (Sonoma) ou plus récent
-- Xcode 16+ pour compiler depuis les sources
-- [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)
-- FFmpeg **embarqué** (recommandé) via `./scripts/fetch-bundled-ffmpeg.sh` — Homebrew uniquement en secours
+---
 
-## Installation automatique (app)
+## CLI — quick start (users)
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/ROSITO/OpenStream/main/scripts/install.sh | bash
-```
-
-Installe la dernière release GitHub dans Applications (FFmpeg embarqué dans le bundle si présent dans la release).
-
-## Installation manuelle (app)
-
-La dernière version est dans [Releases](https://github.com/ROSITO/OpenStream/releases).
-
-1. Téléchargez `OpenStream-*-macos.zip`
-2. Décompressez et glissez `OpenStream.app` dans Applications
-3. Si macOS bloque le lancement : **clic droit → Ouvrir** (signature ad hoc, pas encore notariée)
-
-## Compiler
+### Build
 
 ```bash
-./scripts/fetch-bundled-ffmpeg.sh   # Helpers ffmpeg/ffprobe (non commités)
-xcodegen generate
-xcodebuild -scheme OpenStream -configuration Release -destination 'platform=macOS' build
-xcodebuild -scheme OpenStreamCLI -configuration Release -destination 'platform=macOS' build
+# Toolchain: Rust stable
+cargo build -p openstream-cli --release
+# → target/release/streamcraft
 ```
 
-- App : DerivedData / `OpenStream.app`
-- CLI : DerivedData / `openstream-cli` (+ `Helpers/` à côté)
-
-## Navigateur intégré
-
-Paramètres → **Navigateur** (défaut ON) : popups / pubs / alertes JS bloqués ; redirections auto **cross-site** silencieuses (bandeau, pas de modal). Voir D014 dans [`MEMORY.md`](MEMORY.md).
-
-## CLI / agent IA
-
-`openstream-cli` est conçu pour être **piloté par un agent** (chat, cron, bot) : l’agent route l’intention NL vers une commande, lit le JSON + exit code, et confirme les chemins à l’utilisateur. Il ne réimplémente pas favoris / RSS / download.
-
-Playbook agentique (contrat, routage NL → commande, boucle digest → pick, règles dures) : **[`OpenStreamCLI/README.md` — Utilisation agentique](OpenStreamCLI/README.md#utilisation-agentique)**.
+Optional: put it on your PATH
 
 ```bash
-CLI="$(ls -d "$HOME"/Library/Developer/Xcode/DerivedData/OpenStream-*/Build/Products/Release/openstream-cli | head -1)"
-# ou: openstream-cli  si installé dans ~/.local/bin
-
-# URL média connue
-"$CLI" download 'https://cdn.example/video.mp4' --json --referer 'https://watch.example/ep' --out ~/Downloads/OpenStream
-
-# Page → détecter un flux
-"$CLI" fetch 'https://watch.example/ep' --detect-only --json --timeout 60
-
-# Saison par nom (favoris) — l’agent ne demande pas l’URL
-"$CLI" season 'Example Show' --season 1 --auto-download --json
-
-# Digest nouveautés → l’utilisateur choisit 1 / 1,3
-"$CLI" flix digest --json --mark-seen
-"$CLI" flix pick 1 --enqueue --json
+mkdir -p ~/.local/bin
+ln -sf "$(pwd)/target/release/streamcraft" ~/.local/bin/streamcraft
+export PATH="$HOME/.local/bin:$PATH"
+streamcraft --help
 ```
 
-Exports par défaut : `~/Downloads/OpenStream` (`--out` pour override).
+FFmpeg is resolved from `PATH` or bundled helpers (`./scripts/fetch-ffmpeg.sh`). Check with:
 
-## Docs produit
+```bash
+streamcraft doctor
+```
 
-| Doc | Rôle |
-|-----|------|
-| [`PRD_OpenStream.md`](PRD_OpenStream.md) | Vision / périmètre |
-| [`ARCHITECTURE.md`](ARCHITECTURE.md) | Modules et frontières |
-| [`ROADMAP.md`](ROADMAP.md) | Phases |
-| [`MEMORY.md`](MEMORY.md) | Décisions figées (D014 navigateur, D018 CLI, D019 flix…) |
-| [`CLAUDE.md`](CLAUDE.md) | Règles agents |
+### Download a known media URL
 
-## Contribuer / sécurité
+`.m3u8` / `.mpd` / `.mp4` → `download`:
 
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — build, PRs, règles
-- [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) — Contributor Covenant
-- [`SECURITY.md`](SECURITY.md) — signaler une faille (pas de demandes DRM)
+```bash
+streamcraft download 'https://example.com/video/master.m3u8' \
+  --title 'My Video' \
+  --out ~/Downloads/StreamCraft
+```
+
+JSON Lines (scripts / agents):
+
+```bash
+streamcraft download 'https://example.com/video/master.m3u8' --json --title 'My Video'
+# last useful line: {"type":"completed",…,"path":"…/My Video.mp4"}
+```
+
+Default export folder: **`~/Downloads/StreamCraft/`**.  
+Preferences / jobs / flix state: **`~/Library/Application Support/StreamCraft/`** (macOS).
+
+### Other everyday commands
+
+| Need | Command |
+|------|---------|
+| Page HTML → find stream | `streamcraft fetch <pageURL> --detect-only` |
+| Page → download first stream | `streamcraft fetch <pageURL> --auto-download` |
+| List / download a season | `streamcraft season 'Show Name' --season 1` / `--auto-download` |
+| What’s new on bookmarked hubs | `streamcraft flix digest --json` |
+| Job status | `streamcraft status` / `wait` / `cancel` |
+| Paths & via-app | `streamcraft inbox` / `ping` |
+
+Full options, exit codes, and agent JSON schema: **[`docs/cli.md`](docs/cli.md)**.
+
+---
+
+## Desktop app
+
+```bash
+./scripts/fetch-ffmpeg.sh   # sidecars (not committed)
+cd apps/desktop
+npm install
+npm run tauri dev
+```
+
+---
+
+## Stack
+
+- Rust 2024 workspace: `openstream-core`, `openstream-cli` → binary **`streamcraft`**, `openstream-ffmpeg`
+- Desktop: Tauri 2 + React/Vite (`apps/desktop`)
+- Legacy Swift: `archive/swift/` (tag `pre-rust`)
+
+## Layout
+
+```
+crates/openstream-core/     # parsers, download, stores, agent helpers
+crates/openstream-cli/      # binary: streamcraft
+crates/openstream-ffmpeg/   # sidecar resolve/spawn
+apps/desktop/               # Tauri UI (productName: StreamCraft)
+docs/cli.md                 # CLI user + agent contract
+fixtures/                   # HLS/DASH fixtures
+```
 
 ## Licence
 
-[MIT](LICENSE). FFmpeg est invoqué comme binaire externe (`Process`), sans liaison libav* (LGPL FFmpeg reste séparée).
+MIT — see [LICENSE](LICENSE). FFmpeg remains an external LGPL/GPL binary invoked as a process (not linked).

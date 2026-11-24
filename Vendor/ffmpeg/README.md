@@ -1,17 +1,13 @@
-# FFmpeg embarqué (OpenStream)
+# FFmpeg sidecars
 
-Binaires **statiques** universels (`ffmpeg` / `ffprobe`) placés dans
-`OpenStream/Resources/Helpers/` par `scripts/fetch-bundled-ffmpeg.sh`.
+OpenStream invokes `ffmpeg` / `ffprobe` as external processes (LGPL/GPL binaries, not linked).
 
-- Indépendants de Homebrew / du PATH système
-- Source des builds : https://ffmpeg.martin-riedl.de/ (release macOS)
-- Licence FFmpeg : LGPL/GPL selon codecs du build — voir https://ffmpeg.org/legal.html
-  OpenStream invoque ces binaires via `Process` (pas de linking libav*).
-
-Les binaires ne sont **pas** commités (poids). Avant build / release :
+Fetch:
 
 ```bash
-./scripts/fetch-bundled-ffmpeg.sh
+./scripts/fetch-ffmpeg.sh
 ```
 
-`VERSION` enregistre le hash SHA-256 du dernier fetch.
+Installs into `resources/ffmpeg/{os-arch}/` where `{os-arch}` matches Rust `std::env::consts` (`macos-aarch64`, `linux-x86_64`, `windows-x86_64`, …).
+
+Resolution order (`openstream-ffmpeg`): env `OPENSTREAM_FFMPEG`/`OPENSTREAM_FFPROBE` → bundled helpers → PATH.

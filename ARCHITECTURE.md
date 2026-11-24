@@ -1,11 +1,41 @@
 # ARCHITECTURE.md — OpenStream
 
 Contrats techniques et frontières de modules.  
-Complète le PRD §4–§5. En cas de doute sur le *quoi*, voir le PRD ; sur le *comment découper*, ce fichier gagne.
+**Stack courante (D020) :** Rust + Tauri 2 (macOS / Windows / Linux).  
+Le code Swift historique est sous `archive/swift/` (référence comportementale).
+
+Complète le PRD. En cas de doute sur le *quoi*, voir le PRD ; sur le *comment découper*, ce fichier gagne.
 
 ---
 
-## Vue d'ensemble
+## Vue d'ensemble (Rust)
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  UI (Tauri + React/Vite)                                │
+│  Browser pane · DetectedMediaList · Queue · Settings    │
+└───────────────────────────┬─────────────────────────────┘
+                            │ invoke / events
+┌───────────────────────────▼─────────────────────────────┐
+│  apps/desktop (Tauri host)                              │
+│  commands · browser bridge (JS inject D008) · cookies   │
+└─┬───────────────────────────────────────────────────────┘
+  ▼
+openstream-core ──► media / download / assemble / store / agent
+  │
+  ├── openstream-cli → binary `streamcraft` (clap, JSON Lines)
+  └── openstream-ffmpeg (sidecar resolve + spawn)
+```
+
+Flux : **navigation → observation → détection → parse → download → FFmpeg → export → history**.
+
+CLI headless : scrape HTML + heuristiques ; `--via-app` pour pages JS via GUI.
+
+---
+
+## Legacy note
+
+## Vue d'ensemble (Swift legacy — archive)
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -49,7 +79,7 @@ Flux de données principal : **navigation → observation réseau → détection
 Chemin agent (sans UI) :
 
 ```
-openstream-cli → OpenStreamCore (fetch/season/flix/download)
+`streamcraft` (crate openstream-cli) → OpenStreamCore (fetch/season/flix/download)
               → parsers / DownloadQueue / FFmpeg Helpers
               → JSON Lines (stdout) + exit code
               → flix : RSS hubs favoris → digest JSON (pas de download auto)

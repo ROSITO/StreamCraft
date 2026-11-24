@@ -10,13 +10,13 @@ Mémoire projet : décisions figées, contraintes, et pièges.
 
 | Champ | Valeur |
 |-------|--------|
-| Phase roadmap | Phase 5 ✅ — prochaine : Phase 6 (DASH / audio / subs) |
-| Code applicatif | MVP durci + panneau Paramètres (dossier, proxy, qualité) |
+| Phase roadmap | **Rewrite Rust R0+** (Swift archivé) — voir ROADMAP phases R0–R5 |
+| Code applicatif | Monorepo Rust + Tauri 2 ; Swift gelé dans `archive/swift/` |
 | Licence | **MIT** (`LICENSE`, 2026) |
-| Bundle ID | `app.openstream.OpenStream` |
-| Nom package / target | OpenStream (mono-target) |
-| macOS min | 14.0 |
-| Génération projet | XcodeGen (`project.yml` → `OpenStream.xcodeproj`) |
+| Bundle ID | `app.streamcraft.StreamCraft` (desktop Tauri ; legacy Swift `app.openstream.OpenStream`) |
+| Nom produit desktop | **StreamCraft** (crates `openstream-*` inchangés) |
+| Stack | Rust 2024 + Tauri 2 + React/Vite (macOS / Windows / Linux) |
+| Tag legacy | `pre-rust` (MVP Swift macOS) |
 
 ---
 
@@ -35,9 +35,10 @@ Mémoire projet : décisions figées, contraintes, et pièges.
 **Source :** décision produit (session échafaudage)
 
 ### D002 — Stack
-**Décision :** Swift 6 + SwiftUI + WKWebView + URLSession + SQLite + FFmpeg (libavformat/libavcodec).  
-**Date :** 2026-07-29  
-**Source :** PRD §6
+**Décision (amendée D020) :** historique Swift 6 + SwiftUI + WKWebView + URLSession + SQLite + FFmpeg.  
+**Courant :** Rust 2024 + Tauri 2 (wry WebView) + React/Vite + Tokio/reqwest/rusqlite + FFmpeg sidecar.  
+**Date :** 2026-07-29 / amendé 2026-11-24  
+**Source :** PRD §6 + migration cross-platform
 
 ### D003 — Pipeline unidirectionnel
 **Décision :** Architecture en couches descendantes (voir `ARCHITECTURE.md`). Pas de dépendances remontantes.  
@@ -133,6 +134,15 @@ La relance manuelle reste disponible ; elle ne doit plus être le chemin nominal
 **Décision :** sous-commande `flix` native (scan/digest/bootstrap/seen/pick). Source V1 = RSS hub (`{origin}/engine/rss.php` si dispo) ; normalisation host → favori ; hubs sans RSS = skip. Seen à la proposition (`--mark-seen`), pas au download. Doc publique : placeholders uniquement (pas de noms de sites).  
 **Date :** 2026-10-17
 
+
+### D020 — Rewrite Rust + Tauri (cross-platform)
+**Décision :** rewrite complète (choix 1B) — Swift gelé sous `archive/swift/` ; stack cible Rust + Tauri 2 + frontend web (choix 2A).  
+**CLI headless :** scrape reqwest + heuristiques + `--cookies` ; pages JS via `--via-app` / socket GUI local (`127.0.0.1:8787`, pas de CEF).  
+**FFmpeg :** sidecars multi-OS dans `resources/ffmpeg/{os-arch}/` (esprit D017).  
+**DRM :** gate réintégrée (`drm_gate` prefs ; refus `#EXT-X-KEY` / ContentProtection).  
+**Date :** 2026-11-24  
+**Source :** plan migration Rust Tauri
+
 ---
 
 ## Ouvert / à trancher
@@ -215,8 +225,10 @@ La relance manuelle reste disponible ; elle ne doit plus être le chemin nominal
 | 2026-10-01 | Segments HLS « .image » : faux en-tête PNG devant MPEG-TS (TikTok CDN) — strip + rename .ts avant FFmpeg |
 | 2026-10-01 | Bug suite : download renommait en `.ts` mais playlist gardait `.image` — reconcile URIs avant mux |
 | 2026-10-01 | Fix assemble .image : planifier déjà en `.ts`, réécrire playlist depuis fichiers réels, re-DL si segments manquants |
+| 2026-11-24 | D020 : rewrite Rust + Tauri 2 ; Swift → `archive/swift/` ; workspace Cargo + CLI + desktop |
 
+| 2026-11-24 | Parité Swift→Tauri : inventaire 48 features (PARITY_SWIFT agent store) ; P0 = MediaDownloadSheet + VPN scutil + Settings dossiers/VPN/proxy/naming |
 
+| 2026-11-24 | **Renommage produit desktop Rust → StreamCraft** : `productName` / titre fenêtre / brand UI / bundle `app.streamcraft.StreamCraft` ; icône hibou+clap (stipple violet) via `tauri icon`. Crates restent `openstream-*` (contrat CLI/code). Dossiers data/exports → `StreamCraft`. |
 
-
-
+| 2026-11-24 | CLI binary renamed **`streamcraft`** (crate package remains `openstream-cli`). |

@@ -6,10 +6,10 @@ Instructions permanentes pour tout agent (Cursor, Claude Code, Codex) travaillan
 
 ## Projet
 
-**OpenStream** est une application macOS native open source qui télécharge des flux vidéo (HLS, MPEG-DASH, MP4 progressif).
+**OpenStream** est une application **desktop cross-platform** (macOS, Windows, Linux) open source qui télécharge des flux vidéo (HLS, MPEG-DASH, MP4 progressif).
 
-- Stack : Swift 6, SwiftUI, WKWebView, URLSession, async/await, SQLite, FFmpeg
-- Cible : macOS 14+ (Sonoma), Apple Silicon + Intel
+- Stack : **Rust 2024**, Tauri 2, React/Vite, Tokio, reqwest, rusqlite, FFmpeg sidecar
+- Legacy Swift : `archive/swift/` (gelé, tag `pre-rust`)
 - Licence : **MIT** (`LICENSE`)
 
 Documents de référence (lire dans cet ordre) :
@@ -18,7 +18,7 @@ Documents de référence (lire dans cet ordre) :
 2. `ARCHITECTURE.md` — modules, frontières, contrats
 3. `ROADMAP.md` — phases et critères de done
 4. `MEMORY.md` — décisions figées et pièges connus
-5. `OpenStreamCLI/README.md` — contrat agentique (`openstream-cli` : routage NL, JSON / `season` / `flix`, exit codes)
+5. `OpenStreamCLI/README.md` — contrat agentique (`streamcraft` / crate `openstream-cli` : routage NL, JSON / `season` / `flix`, exit codes)
 6. `README.md` — install / build public
 
 ---
@@ -39,13 +39,13 @@ Documents de référence (lire dans cet ordre) :
 - Les dépendances vont **uniquement vers le bas** du pipeline (UI → Core → Browser → Network → Detector → Parser → Download → FFmpeg → Exporter).
 - Préférer des `protocol` + injection de dépendances aux singletons globaux (sauf `Logger` / `Preferences` si justifié).
 
-### Swift / qualité
+### Rust / qualité
 
-- Swift 6, concurrency stricte (`async`/`await`, `Actor` pour l'état partagé mutable).
-- Pas de force-unwrap (`!`) hors tests ; préférer `guard` / `throws`.
-- Erreurs typées (`enum … Error : LocalizedError`) plutôt que `NSError` génériques.
-- Logs via `os.Logger` (subsystem `app.openstream`), jamais `print` en prod.
-- Chaque module livré avec des tests unitaires ciblés avant de passer à la phase suivante de la roadmap.
+- Rust edition 2024, Tokio pour l'async ; erreurs typées (`thiserror` / `anyhow` aux frontières bin).
+- Logs via `tracing` (pas de `println!` en prod hors contrat CLI JSON Lines).
+- Dépendances workspace dans le `Cargo.toml` racine ; crates : `openstream-core`, `openstream-cli`, `openstream-ffmpeg`, `apps/desktop`.
+- Chaque crate livrée avec tests unitaires ciblés avant la phase ROADMAP suivante.
+- FFmpeg **uniquement** via process/sidecar (`openstream-ffmpeg`) — pas de link libav*.
 
 ### Git / fichiers
 
@@ -70,5 +70,6 @@ Documents de référence (lire dans cet ordre) :
 - Contournement DRM / extraction de contenus chiffrés / déchiffrement
 - Contournement d'authentification
 - Gate DRM produit (détection + refus UI) — **reportée** à la Phase 9 (release publique), pas dans le chemin test/MVP
-- Support iOS / iPadOS (macOS only pour l'instant)
-- Interface non-SwiftUI (AppKit pur) sauf ponts WKWebView nécessaires
+- Support iOS / iPadOS
+- Contournement DRM / CEF embarqué
+- Dual-maintenance Swift + Rust

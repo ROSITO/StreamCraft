@@ -1,5 +1,5 @@
 name: Bug report
-description: Something broken in the macOS app or openstream-cli
+description: Something broken in the macOS app or streamcraft
 title: "[Bug]: "
 labels: ["bug"]
 body:
@@ -28,7 +28,7 @@ body:
       label: Component
       options:
         - App (GUI)
-        - openstream-cli
+        - streamcraft
         - Both / unsure
     validations:
       required: true
