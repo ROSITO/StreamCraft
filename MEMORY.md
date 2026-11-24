@@ -1,0 +1,232 @@
+# MEMORY.md — StreamCraft
+
+Mémoire projet : décisions figées, contraintes, et pièges.  
+**À lire avant toute décision d'archi.**  
+**À mettre à jour** dès qu'une décision structurante est prise.
+
+---
+
+## État actuel
+
+| Champ | Valeur |
+|-------|--------|
+| Phase roadmap | **Rewrite Rust R0+** (Swift archivé) — voir ROADMAP phases R0–R5 |
+| Code applicatif | Monorepo Rust + Tauri 2 ; Swift gelé dans `archive/swift/` |
+| Licence | **MIT** (`LICENSE`, 2026) |
+| Bundle ID | `app.streamcraft.StreamCraft` (desktop Tauri ; legacy Swift `app.openstream.StreamCraft`) |
+| Nom produit desktop | **StreamCraft** (crates `openstream-*` inchangés) |
+| Stack | Rust 2024 + Tauri 2 + React/Vite (macOS / Windows / Linux) |
+| Tag legacy | `pre-rust` (MVP Swift macOS) |
+
+---
+
+## Décisions
+
+### D001 — Périmètre DRM (intention produit)
+**Décision :** StreamCraft ne contourne aucun DRM et ne déchiffre pas de flux protégés. Pour la **release open source publique**, les flux chiffrés seront détectés et refusés avec un message utilisateur.  
+**Date :** 2026-07-29  
+**Source :** PRD §1, §3  
+**Amendement :** voir D007 (report de la gate en version de test)
+
+### D007 — Gate DRM reportée (version de test)
+**Décision :** En version de test / MVP interne, on **n'implémente pas** la détection/refus DRM (`EXT-X-KEY`, `ContentProtection`, messaging UI). Objectif : simplicité de mise en œuvre sur flux clairs et fixtures. La gate complète est intégrée **en fin de parcours**, avant déploiement open source public (ROADMAP Phase 9).  
+**Toujours interdit :** tout code de contournement ou de déchiffrement DRM.  
+**Date :** 2026-07-29  
+**Source :** décision produit (session échafaudage)
+
+### D002 — Stack
+**Décision (amendée D020) :** historique Swift 6 + SwiftUI + WKWebView + URLSession + SQLite + FFmpeg.  
+**Courant :** Rust 2024 + Tauri 2 (wry WebView) + React/Vite + Tokio/reqwest/rusqlite + FFmpeg sidecar.  
+**Date :** 2026-07-29 / amendé 2026-11-24  
+**Source :** PRD §6 + migration cross-platform
+
+### D003 — Pipeline unidirectionnel
+**Décision :** Architecture en couches descendantes (voir `ARCHITECTURE.md`). Pas de dépendances remontantes.  
+**Date :** 2026-07-29  
+**Source :** PRD §4
+
+### D004 — Plugins différés
+**Décision :** Le Plugin Manager est prévu en V2. Le MVP expose déjà des `protocol` stables (Detector, Parser, Downloader) pour éviter un refactor massif.  
+**Date :** 2026-07-29  
+**Source :** ROADMAP + anticipation minimale
+
+### D005 — FFmpeg via wrapper isolé
+**Décision :** Tout accès FFmpeg passe par un module `FFmpegWrapper` unique. Aucun autre module ne lie directement les libs.  
+**Date :** 2026-07-29
+
+### D008 — Technique Network Observer (Phase 1)
+**Décision :** observation hybride —
+1. `WKNavigationDelegate` (`decidePolicyFor` action/response) pour navigations document / réponses média ;
+2. Script JS injecté (`atDocumentStart`) : Resource Timing + hooks `fetch` / `XMLHttpRequest` / éléments `video|audio|source`, relayé via `WKScriptMessageHandler` (`openstreamMedia`).
+**Pourquoi :** WKWebView n’expose pas un proxy HTTP complet ; cette approche suffit pour détecter `.m3u8` / `.mp4` sur beaucoup de players web sans API privée.
+**Limites :** workers isolés, MediaSource buffered opaque, et certains players obfuscated peuvent échapper — à réévaluer en Phase 2/5 si besoin.
+**Date :** 2026-07-29
+
+### D009 — Bundle ID & déploiement
+**Décision :** `app.openstream.StreamCraft`, macOS 14.0+, Swift 6, génération via XcodeGen.
+**Date :** 2026-07-29
+
+### D011 — Paramètres réseau
+**Décision :** le navigateur WKWebView suit le VPN/proxy **système**. Un proxy HTTP/SOCKS5 optionnel s’applique uniquement aux `URLSession` de détection/téléchargement.  
+**Date :** 2026-07-29
+
+### D012 — Licence MIT
+**Décision :** licence produit **MIT** (2026-10-17). FFmpeg reste un binaire externe (LGPL) invoqué par `Process` — pas de linking libav* ; la LGPL FFmpeg s’applique au binaire FFmpeg, pas au code StreamCraft.  
+**Date :** 2026-07-29
+
+**Décision (amendée D017) :** FFmpeg invoqué via `Process`, pas de liaison libav*. Binaire **embarqué** dans le bundle (`Helpers/`) en priorité ; Homebrew/PATH seulement si Helpers absents. Remux `-c copy` + playlist HLS locales.  
+**Stockage :** segments temporaires dans `~/Downloads/StreamCraft/.parts/<jobId>/`, MP4 final dans `~/Downloads/StreamCraft/`, **segments supprimés après assemblage réussi**. Pas de dossier Exports séparé.  
+**Pourquoi :** simplicité LGPL + isolation de l’environnement système.  
+**Date :** 2026-07-29 / amendé 2026-10-17
+
+### D013 — Alignement A/V au mux
+**Décision (amendée 5×) :**
+- **Tout HLS MPEG-TS** (muxé ou démuxé) : remux via `playlist.m3u8` locaux (EXTINF). **Jamais** `-f concat` sur les `.ts` — étire les PTS ~+1,5 % (S01E05) ou drop des frames (audio séparé).
+- **HLS démuxé** : un `ffmpeg` sur vidéo+audio `playlist.m3u8` **avec `-copyts`** (sans `-start_at_zero`). Les renditions partagent souvent une timeline MPEG ; si l’audio démarre plus tard (GoT FR seg1 @ +1,85 s), remettre A et V à 0 indépendamment avance tout le son — sync OK dans le player HLS, cassé dans le MP4.
+- **DASH fMP4** : concat binaire brut + mux `-copyts`/`-start_at_zero` ; post `itsscale`/`atempo` seulement si skew résiduel.
+**Date :** 2026-09-30
+
+### D014 — Bloqueur popups + pubs (navigateur)
+**Décision :** mono-onglet durci via `PopupGuard` — `window.open` neutralisé (JS), `target=_blank` **toujours cancel** en navigation (pas de vol de vue), `createWebView` n’ouvre in-place que lien **utilisateur + même site** ; cross-site (pubs) ignoré. Redirections auto **cross-site** : **blocage silencieux** (bandeau compteur), **jamais** d’alerte modale (spam stream sites). Même site / chaîne HTTP user : autorisé. Alertes/confirm/prompt JS avalés si popups ON. `WKContentRuleList` (`adblock-rules.json` v2). Headless CLI : mêmes garde-fous. Réglages **Paramètres → Navigateur**, défaut ON.  
+Agent Cursor : règle `.cursor/rules/browser-no-ad-tabs.mdc`.  
+
+**Amendement (2026-10-17) :** plus d’alerte modale « Y aller / Rester ici » (spam). `blockAutomaticRedirects` = blocage **silencieux** cross-site + bandeau. Chaîne HTTP 30x d’un chargement utilisateur autorisée jusqu’à `didFinish`.  
+**Date :** 2026-10-01 / amendé 2026-10-17
+
+### D015 — Auto-retry réseau (comportement par défaut)
+**Décision :** un échec 429/502/503/504 (ou « segments en échec » après retries) **ne marque plus le job en failed définitif** d’emblée.  
+1. Retry segment avec backoff + `Retry-After`  
+2. Si le batch échoue encore → job repasse en `queued` avec cooldown (15s…3 min), jusqu’à 12 reprises auto  
+3. Au bootstrap, les jobs `failed` à message transient sont re-queueés  
+La relance manuelle reste disponible ; elle ne doit plus être le chemin nominal.  
+**Date :** 2026-10-01
+
+### D016 — MP4 progressif = stream disque
+**Décision :** le téléchargement d’unités (dont MP4 progressif) utilise `URLSession.download(for:)` (fichier temp), jamais `data(for:)` qui charge tout en RAM. La normalisation leurre PNG→TS ne s’applique qu’aux petits segments HLS/CDN (≤32 Mo, extensions segment/leurre).  
+**Date :** 2026-10-05
+
+### D017 — FFmpeg embarqué (plus de dépendance Homebrew)
+**Décision :** StreamCraft shippe ses propres `ffmpeg` / `ffprobe` **statiques** (universal arm64+x86_64) dans `Contents/Resources/Helpers/`.  
+- Fetch : `scripts/fetch-bundled-ffmpeg.sh` (source https://ffmpeg.martin-riedl.de/ release)  
+- Résolution : **bundle d’abord**, puis `OPENSTREAM_FFMPEG`, puis Homebrew/PATH en secours uniquement  
+- Les binaires ne sont pas dans git (poids) ; le script + `Vendor/ffmpeg/README.md` documentent la procédure  
+- Toujours invoqué via `Process` (pas de linking libav*) — compatible D005 / licence app encore ouverte  
+**Pourquoi :** un `brew upgrade` (ex. x265 soname) cassait tous les assemblages ; inacceptable.  
+**Date :** 2026-10-17  
+**Amende :** D010 / case « Distribution FFmpeg : Homebrew only » — Homebrew n’est plus le chemin nominal.
+
+### D018 — CLI headless / agent
+**Décision :** `openstream-cli` exécute download/assemble **sans** l’app GUI.  
+- Sources pipeline partagées compilées dans le target CLI + façade `OpenStreamCore/` (`HeadlessDownloadService`, `HeadlessBrowserSession`, JSON agent)  
+- Prefs runtime : `SettingsCore.swift` (`AppPreferences` snapshot) ; UI AppKit reste dans `AppSettings`  
+- DB dédiée `Application Support/StreamCraft/cli-store/` (flag `--shared-db` pour partager l’app)  
+- Contrat agent : JSON Lines stdout + exit codes documentés dans `OpenStreamCLI/README.md` (playbook agent)  
+- Phase B : `fetch` via WKWebView offscreen (`NSApplication` accessory) ; titres via `PageTitleResolver` (`--title` prioritaire)  
+- `season` : résolution page via favoris (`SeasonResolver` : bookmark titre → sinon search sites favoris) puis énumération (1) catalogue `/data/eps_{id}.txt`, (2) pattern `/tv/{id}/s/{S}/e/{E}`, (3) DOM ; défaut list-only ; `--auto-download` séquentiel + export Jellyfin série ; pick HLS vidéo vs `index-a1`  
+- `flix` : digest nouveautés hubs favoris via RSS (`FlixService` / `flix_seen.json`) — propose, n’auto-télécharge pas ; `pick --enqueue` → `season`/`fetch`
+
+- Install agent type : `~/.local/opt/openstream-cli/` + symlink `~/.local/bin/openstream-cli` ; exports défaut `~/Downloads/StreamCraft`  
+
+- Inbox `--via-app` conservée comme pont optionnel vers la GUI  
+**Date :** 2026-10-17
+
+### D019 — Flix (digest CLI)
+**Décision :** sous-commande `flix` native (scan/digest/bootstrap/seen/pick). Source V1 = RSS hub (`{origin}/engine/rss.php` si dispo) ; normalisation host → favori ; hubs sans RSS = skip. Seen à la proposition (`--mark-seen`), pas au download. Doc publique : placeholders uniquement (pas de noms de sites).  
+**Date :** 2026-10-17
+
+
+### D020 — Rewrite Rust + Tauri (cross-platform)
+**Décision :** rewrite complète (choix 1B) — Swift gelé sous `archive/swift/` ; stack cible Rust + Tauri 2 + frontend web (choix 2A).  
+**CLI headless :** scrape reqwest + heuristiques + `--cookies` ; pages JS via `--via-app` / socket GUI local (`127.0.0.1:8787`, pas de CEF).  
+**FFmpeg :** sidecars multi-OS dans `resources/ffmpeg/{os-arch}/` (esprit D017).  
+**DRM :** gate réintégrée (`drm_gate` prefs ; refus `#EXT-X-KEY` / ContentProtection).  
+**Date :** 2026-11-24  
+**Source :** plan migration Rust Tauri
+
+---
+
+## Ouvert / à trancher
+
+- [x] Licence → **MIT** (2026-10-17)
+- [x] Distribution FFmpeg : **embarqué** (`Helpers/`, fetch script) — Homebrew secours seulement (D017)
+- [ ] Bundle identifier — **tranché :** `app.openstream.StreamCraft` (D009)
+- [ ] Stratégie App Sandbox + entitlements réseau / downloads folder — **sandbox ON** (network client + downloads + user-selected R/W) ; à valider en usage réel
+- [ ] Format d'export MVP : MP4 uniquement, ou MKV aussi
+- [ ] Qualité HLS par défaut : meilleure disponible vs choix utilisateur dès le MVP
+
+---
+
+## Pièges connus
+
+### WebKit / réseau
+- `WKWebView` ne expose pas nativement tout le trafic HTTP comme un proxy. Il faudra probablement combiner `WKURLSchemeHandler` (limité), observation via `WKScriptMessageHandler` + hooks JS, et/ou `URLProtocol` / instrumentation côté session custom. **À prototyper tôt (Phase 1).**
+- Les cookies de `WKHTTPCookieStore` doivent être synchronisés vers `URLSession` pour que les téléchargements authentifiés fonctionnent.
+
+### HLS
+- Playlists master vs media : toujours résoudre la variante choisie avant de télécharger les segments.
+- Live vs VOD : le MVP cible **VOD / playlists finies** (`#EXT-X-ENDLIST`). Live en continu est hors MVP.
+- `EXT-X-MAP` (init segment fMP4) : à gérer dès le support fMP4 HLS, sinon fichiers incomplets.
+- `#EXT-X-KEY` / DRM : **ignoré en version test** (D007) ; **refus obligatoire** avant release publique (D001, Phase 9). Ne pas construire de déchiffrement « en attendant ».
+
+### DASH
+- Phase 6 : `DASHParser` (SegmentList / SegmentTemplate / BaseURL). Audio DASH auto-inclus si une seule piste ; sinon sheet. Subs en sidecar `.vtt`. Pas de gate DRM (Phase 9).
+
+### FFmpeg
+- Remux (copy) vs re-encode : préférer remux (`-c copy`) quand les codecs sont compatibles conteneur.
+- Chemins avec espaces / Unicode : toujours passer des URL file ou arguments correctement quotés via Process API typé, pas de shell string.
+- **Sync A/V (DASH / pistes séparées)** : préserver la timeline Period (`-copyts` à l’assemblage + mux, `-start_at_zero` une fois). Ne pas appliquer `make_zero`/`genpts`/`itsoffset`/`atempo` séparément sur A et V. Fichiers déjà exportés avec dérive non linéaire : re-télécharger.
+
+### Concurrency
+- La download queue et le network observer sont des candidats naturels à `actor`.
+- Ne pas bloquer le MainActor avec du parsing ou de l'I/O FFmpeg.
+
+---
+
+## Journal (court)
+
+| Date | Note |
+|------|------|
+| 2026-07-29 | Création CLAUDE.md, MEMORY.md, ARCHITECTURE.md, ROADMAP.md à partir du PRD draft |
+| 2026-07-29 | D007 : gate DRM reportée à la Phase 9 (release publique) ; version test sans détection/refus |
+| 2026-07-29 | Phase 0+1 : XcodeGen app, browser, CookieBridge, NetworkObserver (D008), tests heuristics |
+| 2026-07-29 | Phase 2 : MediaDetector, HLSParser (master/media/fMP4), MediaCatalog, UI médias classifiés, 11 tests |
+| 2026-07-29 | Fix : MediaCatalog branché sur tous les candidats (xhr/fetch), pas seulement navigation |
+| 2026-07-29 | Phase 3 : DownloadQueue, SQLite jobs, HLS/progressive download, UI progress/cancel/resume |
+| 2026-07-29 | Phase 5 + Settings : dossier, proxy/VPN, retries, choix qualité HLS, cleanup .parts |
+| 2026-07-29 | Indicateur VPN système (utun/ipsec/ppp) dans toolbar + réglages |
+| 2026-07-29 | Phase 6 : DASHParser, download/assemble DASH, audio/subs optionnels, sheet options, fixtures |
+| 2026-07-29 | Favoris sites (BookmarkStore JSON) + Phase 7 PluginManager / ExampleMediaHintPlugin / PLUGIN_AUTHOR.md |
+| 2026-07-29 | Phase 8 : historique, batch URLs, auto-enqueue, openstream-cli (inbox locale) |
+| 2026-07-29 | Nomenclature export configurable (Jellyfin film/série + custom) + titre/année au download |
+| 2026-07-29 | Download : fenêtre glissante segments + réglage concurrence (défaut 8, max 16) |
+| 2026-08-17 | Dépôt public + release v0.1.0 ; install.sh + setup FFmpeg in-app via Homebrew |
+| 2026-09-08 | Fix sync A/V au mux (genpts / avoid_negative_ts + fallback aresample) — cas Lanterns |
+| 2026-09-08 | UI « Réparer sync » (téléchargements + historique) pour MP4 déjà exportés |
+| 2026-09-08 | Feuille « Ajuster sync » : décalage audio manuel ±2 s (cas ~1 s restant) |
+| 2026-09-08 | Sync dérive : étirement audio (atempo) pour coller à la durée vidéo |
+| 2026-09-08 | Garde-fou : refus export si |durée A−V| > 1 s (segments incomplets) ; Sync UI avertit |
+| 2026-09-08 | Mux type lecteur : align PTS + `-t min(A,V)` ; bouton « Recaler comme le lecteur » |
+| 2026-09-08 | D013 amendé : `-copyts` / timeline Period ; atempo post-hoc insuffisant si dérive non linéaire |
+| 2026-09-08 | D013 v3 : concat fMP4 brut (pas de remux intermédiaire) + itsscale/atempo si skew ; fix r=-1 |
+| 2026-09-08 | D013 v4 : Lanterns = HLS TS démuxé ; mux via playlist.m3u8 locaux (concat TS cassait le sync) |
+| 2026-09-08 | Validé utilisateur : S01E04-10.mp4 sync A/V parfait (mux m3u8 locaux) |
+| 2026-10-01 | D014 : bloqueur popups (WKUIDelegate) + adblock (WKContentRuleList) ; toggles Paramètres |
+| 2026-10-17 | D014+ : `PopupGuard` — blank cross-site bloqué ; `window.open` null ; headless + règle Cursor |
+| 2026-10-17 | D014++ : redirects cross-site = silence (bandeau) ; plus de modal spam ; JS alert/prompt avalés |
+| 2026-10-17 | D019 : `flix` digest RSS hubs favoris (scan/digest/pick) |
+| 2026-10-01 | D015 : auto-retry job 429/503 (cooldown + bootstrap) — relance manuelle plus le chemin nominal |
+| 2026-10-05 | D016 : MP4 progressif via URLSession.download (plus de data(for:) en RAM) |
+| 2026-10-17 | D017 : FFmpeg statique embarqué (Helpers) — plus de casse via brew/x265 |
+| 2026-10-17 | D018 : openstream-cli headless (download/fetch/JSON agent) |
+| 2026-10-17 | D018+ : `season` (eps_*.txt / watch-path / DOM) ; pick HLS vidéo ; doc agent |
+| 2026-10-17 | Doc publique : placeholders (pas de noms/hôtes de sites stream) |
+| 2026-10-17 | Licence produit → MIT (`LICENSE`) |
+| 2026-10-17 | `SeasonResolver` : `season '<show>'` via favoris/search sites — plus besoin d’URL page |
+| 2026-10-01 | Segments HLS « .image » : faux en-tête PNG devant MPEG-TS (TikTok CDN) — strip + rename .ts avant FFmpeg |
+| 2026-10-01 | Bug suite : download renommait en `.ts` mais playlist gardait `.image` — reconcile URIs avant mux |
+| 2026-10-01 | Fix assemble .image : planifier déjà en `.ts`, réécrire playlist depuis fichiers réels, re-DL si segments manquants |
+| 2026-11-24 | D020 : rewrite Rust + Tauri 2 ; Swift → `archive/swift/` ; workspace Cargo + CLI + desktop |
+
+| 2026-11-24 | Parité Swift→Tauri : inventaire 48 features (PARITY_SWIFT agent store) ; P0 = MediaDownloadSheet + VPN scutil + Settings dossiers/VPN/proxy/naming |
+
+| 2026-11-24 | **Renommage produit desktop Rust → StreamCraft** : `productName` / titre fenêtre / brand UI / bundle `app.streamcraft.StreamCraft` ; icône hibou+clap (stipple violet) via `tauri icon`. Crates restent `openstream-*` (contrat CLI/code). Dossiers data/exports → `StreamCraft`. |

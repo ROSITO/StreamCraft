@@ -1,0 +1,85 @@
+# macOS / Xcode
+.DS_Store
+**/.DS_Store
+*.swp
+*~
+
+# Xcode
+build/
+DerivedData/
+*.xcuserdata
+*.xccheckout
+*.xcscmblueprint
+xcuserdata/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+timeline.xctimeline
+playground.xcworkspace
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Packages/
+Package.resolved
+
+# CocoaPods / Carthage (si un jour)
+Pods/
+Carthage/Build/
+
+# Secrets & locaux
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+Secrets/
+Config/Local.xcconfig
+
+# FFmpeg binaires locaux / artifacts (fetch via scripts/fetch-bundled-ffmpeg.sh)
+Tools/ffmpeg*
+Vendor/FFmpeg/**/*.a
+Vendor/FFmpeg/**/*.dylib
+Vendor/ffmpeg/VERSION
+OpenStream/Resources/Helpers/ffmpeg
+OpenStream/Resources/Helpers/ffprobe
+*.xcframework/
+
+# App exports / downloads de test
+Downloads/
+*.mp4
+*.ts
+*.m4s
+!Fixtures/**
+
+# IDE / agents locaux (MCP multi-outils, etc.)
+.idea/
+*.code-workspace
+.cursor/
+.codex/
+.gemini/
+.grok/
+.zed/
+.vscode/
+.mcp.json
+opencode.json
+config/mcporter.json
+
+# Rust / Tauri
+/target/
+**/target/
+apps/desktop/dist/
+apps/desktop/node_modules/
+apps/desktop/src-tauri/target/
+
+# FFmpeg sidecars
+resources/ffmpeg/
+resources/Helpers/
+archive/swift/OpenStream/Resources/Helpers/ffmpeg
+archive/swift/OpenStream/Resources/Helpers/ffprobe
+
+# Fork/sanitizer pipeline reports (local only)
+FORK_REPORT.md
+SANITIZATION_REPORT.md
