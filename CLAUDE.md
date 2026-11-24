@@ -1,4 +1,4 @@
-# CLAUDE.md — StreamCraft
+# CLAUDE.md — OpenStream
 
 Instructions permanentes pour tout agent (Cursor, Claude Code, Codex) travaillant sur ce dépôt.
 
@@ -6,7 +6,7 @@ Instructions permanentes pour tout agent (Cursor, Claude Code, Codex) travaillan
 
 ## Projet
 
-**StreamCraft** est une application **desktop cross-platform** (macOS, Windows, Linux) open source qui télécharge des flux vidéo (HLS, MPEG-DASH, MP4 progressif).
+**OpenStream** est une application **desktop cross-platform** (macOS, Windows, Linux) open source qui télécharge des flux vidéo (HLS, MPEG-DASH, MP4 progressif).
 
 - Stack : **Rust 2024**, Tauri 2, React/Vite, Tokio, reqwest, rusqlite, FFmpeg sidecar
 - Legacy Swift : `archive/swift/` (gelé, tag `pre-rust`)
@@ -18,7 +18,7 @@ Documents de référence (lire dans cet ordre) :
 2. `ARCHITECTURE.md` — modules, frontières, contrats
 3. `ROADMAP.md` — phases et critères de done
 4. `MEMORY.md` — décisions figées et pièges connus
-5. `OpenStreamCLI/README.md` — contrat agentique (`openstream-cli` : routage NL, JSON / `season` / `flix`, exit codes)
+5. `OpenStreamCLI/README.md` — contrat agentique (`streamcraft` / crate `openstream-cli` : routage NL, JSON / `season` / `flix`, exit codes)
 6. `README.md` — install / build public
 
 ---

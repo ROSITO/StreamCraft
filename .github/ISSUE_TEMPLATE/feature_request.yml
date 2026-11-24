@@ -26,7 +26,7 @@ body:
       label: Surface
       options:
         - macOS app
-        - openstream-cli / agents
+        - streamcraft / agents
         - Docs
         - Other
     validations:

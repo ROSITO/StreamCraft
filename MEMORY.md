@@ -1,4 +1,4 @@
-# MEMORY.md — StreamCraft
+# MEMORY.md — OpenStream
 
 Mémoire projet : décisions figées, contraintes, et pièges.  
 **À lire avant toute décision d'archi.**  
@@ -13,7 +13,7 @@ Mémoire projet : décisions figées, contraintes, et pièges.
 | Phase roadmap | **Rewrite Rust R0+** (Swift archivé) — voir ROADMAP phases R0–R5 |
 | Code applicatif | Monorepo Rust + Tauri 2 ; Swift gelé dans `archive/swift/` |
 | Licence | **MIT** (`LICENSE`, 2026) |
-| Bundle ID | `app.streamcraft.StreamCraft` (desktop Tauri ; legacy Swift `app.openstream.StreamCraft`) |
+| Bundle ID | `app.streamcraft.StreamCraft` (desktop Tauri ; legacy Swift `app.openstream.OpenStream`) |
 | Nom produit desktop | **StreamCraft** (crates `openstream-*` inchangés) |
 | Stack | Rust 2024 + Tauri 2 + React/Vite (macOS / Windows / Linux) |
 | Tag legacy | `pre-rust` (MVP Swift macOS) |
@@ -23,7 +23,7 @@ Mémoire projet : décisions figées, contraintes, et pièges.
 ## Décisions
 
 ### D001 — Périmètre DRM (intention produit)
-**Décision :** StreamCraft ne contourne aucun DRM et ne déchiffre pas de flux protégés. Pour la **release open source publique**, les flux chiffrés seront détectés et refusés avec un message utilisateur.  
+**Décision :** OpenStream ne contourne aucun DRM et ne déchiffre pas de flux protégés. Pour la **release open source publique**, les flux chiffrés seront détectés et refusés avec un message utilisateur.  
 **Date :** 2026-07-29  
 **Source :** PRD §1, §3  
 **Amendement :** voir D007 (report de la gate en version de test)
@@ -63,7 +63,7 @@ Mémoire projet : décisions figées, contraintes, et pièges.
 **Date :** 2026-07-29
 
 ### D009 — Bundle ID & déploiement
-**Décision :** `app.openstream.StreamCraft`, macOS 14.0+, Swift 6, génération via XcodeGen.
+**Décision :** `app.openstream.OpenStream`, macOS 14.0+, Swift 6, génération via XcodeGen.
 **Date :** 2026-07-29
 
 ### D011 — Paramètres réseau
@@ -71,11 +71,11 @@ Mémoire projet : décisions figées, contraintes, et pièges.
 **Date :** 2026-07-29
 
 ### D012 — Licence MIT
-**Décision :** licence produit **MIT** (2026-10-17). FFmpeg reste un binaire externe (LGPL) invoqué par `Process` — pas de linking libav* ; la LGPL FFmpeg s’applique au binaire FFmpeg, pas au code StreamCraft.  
+**Décision :** licence produit **MIT** (2026-10-17). FFmpeg reste un binaire externe (LGPL) invoqué par `Process` — pas de linking libav* ; la LGPL FFmpeg s’applique au binaire FFmpeg, pas au code OpenStream.  
 **Date :** 2026-07-29
 
 **Décision (amendée D017) :** FFmpeg invoqué via `Process`, pas de liaison libav*. Binaire **embarqué** dans le bundle (`Helpers/`) en priorité ; Homebrew/PATH seulement si Helpers absents. Remux `-c copy` + playlist HLS locales.  
-**Stockage :** segments temporaires dans `~/Downloads/StreamCraft/.parts/<jobId>/`, MP4 final dans `~/Downloads/StreamCraft/`, **segments supprimés après assemblage réussi**. Pas de dossier Exports séparé.  
+**Stockage :** segments temporaires dans `~/Downloads/OpenStream/.parts/<jobId>/`, MP4 final dans `~/Downloads/OpenStream/`, **segments supprimés après assemblage réussi**. Pas de dossier Exports séparé.  
 **Pourquoi :** simplicité LGPL + isolation de l’environnement système.  
 **Date :** 2026-07-29 / amendé 2026-10-17
 
@@ -106,7 +106,7 @@ La relance manuelle reste disponible ; elle ne doit plus être le chemin nominal
 **Date :** 2026-10-05
 
 ### D017 — FFmpeg embarqué (plus de dépendance Homebrew)
-**Décision :** StreamCraft shippe ses propres `ffmpeg` / `ffprobe` **statiques** (universal arm64+x86_64) dans `Contents/Resources/Helpers/`.  
+**Décision :** OpenStream shippe ses propres `ffmpeg` / `ffprobe` **statiques** (universal arm64+x86_64) dans `Contents/Resources/Helpers/`.  
 - Fetch : `scripts/fetch-bundled-ffmpeg.sh` (source https://ffmpeg.martin-riedl.de/ release)  
 - Résolution : **bundle d’abord**, puis `OPENSTREAM_FFMPEG`, puis Homebrew/PATH en secours uniquement  
 - Les binaires ne sont pas dans git (poids) ; le script + `Vendor/ffmpeg/README.md` documentent la procédure  
@@ -119,13 +119,13 @@ La relance manuelle reste disponible ; elle ne doit plus être le chemin nominal
 **Décision :** `openstream-cli` exécute download/assemble **sans** l’app GUI.  
 - Sources pipeline partagées compilées dans le target CLI + façade `OpenStreamCore/` (`HeadlessDownloadService`, `HeadlessBrowserSession`, JSON agent)  
 - Prefs runtime : `SettingsCore.swift` (`AppPreferences` snapshot) ; UI AppKit reste dans `AppSettings`  
-- DB dédiée `Application Support/StreamCraft/cli-store/` (flag `--shared-db` pour partager l’app)  
+- DB dédiée `Application Support/OpenStream/cli-store/` (flag `--shared-db` pour partager l’app)  
 - Contrat agent : JSON Lines stdout + exit codes documentés dans `OpenStreamCLI/README.md` (playbook agent)  
 - Phase B : `fetch` via WKWebView offscreen (`NSApplication` accessory) ; titres via `PageTitleResolver` (`--title` prioritaire)  
 - `season` : résolution page via favoris (`SeasonResolver` : bookmark titre → sinon search sites favoris) puis énumération (1) catalogue `/data/eps_{id}.txt`, (2) pattern `/tv/{id}/s/{S}/e/{E}`, (3) DOM ; défaut list-only ; `--auto-download` séquentiel + export Jellyfin série ; pick HLS vidéo vs `index-a1`  
 - `flix` : digest nouveautés hubs favoris via RSS (`FlixService` / `flix_seen.json`) — propose, n’auto-télécharge pas ; `pick --enqueue` → `season`/`fetch`
 
-- Install agent type : `~/.local/opt/openstream-cli/` + symlink `~/.local/bin/openstream-cli` ; exports défaut `~/Downloads/StreamCraft`  
+- Install agent type : `~/.local/opt/openstream-cli/` + symlink `~/.local/bin/openstream-cli` ; exports défaut `~/Downloads/OpenStream`  
 
 - Inbox `--via-app` conservée comme pont optionnel vers la GUI  
 **Date :** 2026-10-17
@@ -149,7 +149,7 @@ La relance manuelle reste disponible ; elle ne doit plus être le chemin nominal
 
 - [x] Licence → **MIT** (2026-10-17)
 - [x] Distribution FFmpeg : **embarqué** (`Helpers/`, fetch script) — Homebrew secours seulement (D017)
-- [ ] Bundle identifier — **tranché :** `app.openstream.StreamCraft` (D009)
+- [ ] Bundle identifier — **tranché :** `app.openstream.OpenStream` (D009)
 - [ ] Stratégie App Sandbox + entitlements réseau / downloads folder — **sandbox ON** (network client + downloads + user-selected R/W) ; à valider en usage réel
 - [ ] Format d'export MVP : MP4 uniquement, ou MKV aussi
 - [ ] Qualité HLS par défaut : meilleure disponible vs choix utilisateur dès le MVP
@@ -230,3 +230,5 @@ La relance manuelle reste disponible ; elle ne doit plus être le chemin nominal
 | 2026-11-24 | Parité Swift→Tauri : inventaire 48 features (PARITY_SWIFT agent store) ; P0 = MediaDownloadSheet + VPN scutil + Settings dossiers/VPN/proxy/naming |
 
 | 2026-11-24 | **Renommage produit desktop Rust → StreamCraft** : `productName` / titre fenêtre / brand UI / bundle `app.streamcraft.StreamCraft` ; icône hibou+clap (stipple violet) via `tauri icon`. Crates restent `openstream-*` (contrat CLI/code). Dossiers data/exports → `StreamCraft`. |
+
+| 2026-11-24 | CLI binary renamed **`streamcraft`** (crate package remains `openstream-cli`). |

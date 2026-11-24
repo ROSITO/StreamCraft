@@ -1,4 +1,4 @@
-# ROADMAP.md — StreamCraft
+# ROADMAP.md — OpenStream
 
 Plan d'exécution ordonné.  
 Une phase = un incrément livrable avec critères de done.  
@@ -20,7 +20,7 @@ Références : `PRD_OpenStream.md`, `ARCHITECTURE.md`, `MEMORY.md`, `CLAUDE.md`.
 
 **Objectif :** squelette Xcode + docs + conventions prêts pour coder.
 
-- [x] Projet Xcode macOS (SwiftUI App) `StreamCraft`
+- [x] Projet Xcode macOS (SwiftUI App) `OpenStream`
 - [x] Structure dossiers alignée `ARCHITECTURE.md` (même en mono-target au début)
 - [x] Découpage dossiers prêt pour extraction future de targets (pas de Package.swift actif)
 - [x] `.gitignore` (DerivedData, `.DS_Store`, secrets, binaires locaux)
@@ -79,7 +79,7 @@ Références : `PRD_OpenStream.md`, `ARCHITECTURE.md`, `MEMORY.md`, `CLAUDE.md`.
 - [x] Tests : queue, annulation, reprise simulée
 
 **Done quand :** un job HLS VOD et un MP4 se téléchargent jusqu'au bout avec progress UI ; cancel fonctionne ; reprise après relance app pour un job interrompu.  
-**Statut :** ✅ livré 2026-07-29 — fichiers dans `~/Downloads/StreamCraft/` ; assemblage MP4 = Phase 4
+**Statut :** ✅ livré 2026-07-29 — fichiers dans `~/Downloads/OpenStream/` ; assemblage MP4 = Phase 4
 
 ---
 
@@ -89,7 +89,7 @@ Références : `PRD_OpenStream.md`, `ARCHITECTURE.md`, `MEMORY.md`, `CLAUDE.md`.
 
 - [x] Intégration FFmpeg isolée (`FFmpegWrapper`) — méthode choisie documentée dans `MEMORY.md`
 - [x] Remux / concat segments → MP4 (`-c copy` quand possible)
-- [x] `Exporter` : MP4 dans `~/Downloads/StreamCraft/` ; segments `.parts/` puis cleanup
+- [x] `Exporter` : MP4 dans `~/Downloads/OpenStream/` ; segments `.parts/` puis cleanup
 - [x] Gestion d'erreurs codecs / remux (message UI clair)
 - [x] Préférences : dossier destination (`AppPreferences`), concurrence
 - [x] Tests integration sur fixtures locales
@@ -156,7 +156,7 @@ Références : `PRD_OpenStream.md`, `ARCHITECTURE.md`, `MEMORY.md`, `CLAUDE.md`.
 - [x] History UI complète (recherche, re-download si URL encore valide)
 - [x] Batch : file multi-URLs (médias + pages séquentielles)
 - [x] Règles d'automatisation simples (auto-enqueue HLS / DASH / MP4)
-- [x] API locale CLI (`openstream-cli` → inbox Application Support)
+- [x] API locale CLI (`streamcraft` → inbox Application Support)
 - [x] Tests unitaires productivité (history / batch / rules / command JSON)
 
 **Done quand :** un utilisateur power-user peut enchaîner plusieurs téléchargements et rejouer l'historique.  
@@ -248,7 +248,7 @@ Ne pas publier en open source tant que la Phase 9 n'est pas verte.
 ### Phase R2 — Download + FFmpeg + CLI MVP
 - [x] Queue Tokio + reqwest stream disque
 - [x] Assemblage remux (HLS m3u8 locaux, DASH concat, progressive)
-- [x] `openstream-cli` download/status/wait/cancel/fetch/season/flix + JSONL
+- [x] `streamcraft` download/status/wait/cancel/fetch/season/flix + JSONL
 
 ### Phase R3 — Navigateur GUI
 - [x] Shell Tauri React (browser / detected / settings)

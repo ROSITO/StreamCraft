@@ -3,7 +3,7 @@ name = "openstream-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "StreamCraft domain core: media detection, parsers, download queue, stores"
+description = "OpenStream domain core: media detection, parsers, download queue, stores"
 publish = false
 
 [dependencies]

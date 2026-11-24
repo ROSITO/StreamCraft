@@ -1,53 +1,66 @@
-> **Rust port:** binary is `cargo run -p openstream-cli -- …`. Build with `cargo build -p openstream-cli`. Behavioural contract below remains the agent source of truth.
+# streamcraft — CLI StreamCraft
 
-# openstream-cli — contrat agent IA
-
-CLI headless StreamCraft : détecter, télécharger et assembler des flux **clairs** (HLS / DASH / MP4) sans GUI.  
-Sortie machine : **JSON Lines** sur stdout + **exit code**. FFmpeg embarqué dans `Helpers/` à côté du binaire.
+CLI headless : détecter, télécharger et assembler des flux **clairs** (HLS / DASH / MP4) sans GUI.  
+Binaire : **`streamcraft`** (crate Cargo `openstream-cli`).  
+Sortie machine : **JSON Lines** sur stdout + **exit code**.
 
 > Pas de contournement DRM, captcha, login, ni déchiffrement. Cookies / referer = rejouer une session déjà accordée à l’utilisateur.
 
----
-
-## Localiser le binaire
-
 ```bash
-xcodegen generate   # si project.yml a changé
-./scripts/fetch-bundled-ffmpeg.sh   # si Helpers/ffmpeg absents
-xcodebuild -scheme OpenStreamCLI -configuration Debug -destination 'platform=macOS' build
-
-CLI="$(ls -d "$HOME"/Library/Developer/Xcode/DerivedData/OpenStream-*/Build/Products/Debug/openstream-cli | head -1)"
-"$CLI" help
+cargo build -p openstream-cli --release   # → target/release/streamcraft
+cargo run -p openstream-cli -- --help
 ```
 
-Produit : `openstream-cli` (`PRODUCT_NAME`). Bundle id : `app.openstream.OpenStreamCLI`.
+---
 
-### Install agent (machine distante)
+## Install (utilisateurs)
 
-Emplacement recommandé :
+### Build local
+
+```bash
+cargo build -p openstream-cli --release
+./scripts/fetch-ffmpeg.sh    # sidecars FFmpeg si besoin
+./target/release/streamcraft doctor
+```
+
+### PATH recommandé
 
 | | |
 |--|--|
-| Binaire + FFmpeg | `~/.local/opt/openstream-cli/` |
-| Lien PATH | `~/.local/bin/openstream-cli` |
-| Doc | `~/.local/opt/openstream-cli/README.md` |
-| Exports défaut | `~/Downloads/StreamCraft` |
+| Binaire | `~/.local/opt/streamcraft/streamcraft` (ou lien depuis `target/release/`) |
+| Lien PATH | `~/.local/bin/streamcraft` |
+| Exports défaut | `~/Downloads/StreamCraft/` |
+| État (jobs, flix, prefs) | `~/Library/Application Support/StreamCraft/` (macOS) |
 
 ```bash
+mkdir -p ~/.local/bin ~/.local/opt/streamcraft
+cp target/release/streamcraft ~/.local/opt/streamcraft/
+ln -sf ~/.local/opt/streamcraft/streamcraft ~/.local/bin/streamcraft
 export PATH="$HOME/.local/bin:$PATH"
-openstream-cli help
+streamcraft --help
 ```
 
-Redeploy depuis la machine de build :
+### Premier téléchargement
+
+URL média déjà connue (`.m3u8` / `.mpd` / `.mp4`) :
 
 ```bash
-xcodebuild -scheme OpenStreamCLI -configuration Release -destination 'platform=macOS' build
-PROD="$HOME/Library/Developer/Xcode/DerivedData/OpenStream-*/Build/Products/Release"
-rsync -az \
-  "$PROD/openstream-cli" "$PROD/Helpers" "$PROD/ffmpeg" "$PROD/ffprobe" \
-  OpenStreamCLI/README.md \
-  user@agent-host:~/.local/opt/openstream-cli/
-# Helpers/ doit finir dans ~/.local/opt/openstream-cli/Helpers/
+streamcraft download 'https://cdn.example/video/master.m3u8' \
+  --title 'Example' \
+  --out ~/Downloads/StreamCraft
+```
+
+Mode script / agent (`--json`) — succès = dernière ligne utile avec `completed` + champ `path` :
+
+```bash
+streamcraft download 'https://cdn.example/video/master.m3u8' --json --title 'Example'
+```
+
+Page HTML → découvrir le flux :
+
+```bash
+streamcraft fetch 'https://watch.example/episode/1' --detect-only --json
+streamcraft fetch 'https://watch.example/episode/1' --auto-download --json
 ```
 
 ---
@@ -73,7 +86,7 @@ Règle simple : **URL fichier média → `download`**. **URL page HTML → `fetc
 
 ## Utilisation agentique
 
-L’agent (assistant, cron, bot messagerie) **orchestre** `openstream-cli` : il parse l’intention utilisateur, lance la bonne commande avec `--json`, lit stdout + exit code, puis répond en langage naturel. Il **ne réimplémente pas** RSS, favoris, ni le pipeline download.
+L’agent (assistant, cron, bot messagerie) **orchestre** `streamcraft` : il parse l’intention utilisateur, lance la bonne commande avec `--json`, lit stdout + exit code, puis répond en langage naturel. Il **ne réimplémente pas** RSS, favoris, ni le pipeline download.
 
 ### Rôle de l’agent
 
@@ -142,10 +155,10 @@ Les favoris StreamCraft sont souvent des **hubs** (homepages). L’agent parle e
 
 ```bash
 # Bien
-openstream-cli season 'Example Show' --season 1 --json --auto-download
+streamcraft season 'Example Show' --season 1 --json --auto-download
 
 # Mal
-openstream-cli season … --title 'Telecharge la saison de Example Show'
+streamcraft season … --title 'Telecharge la saison de Example Show'
 ```
 
 ### Cron / agent proactif
@@ -153,7 +166,7 @@ openstream-cli season … --title 'Telecharge la saison de Example Show'
 Fréquence typique : 1–2× / semaine.
 
 ```bash
-openstream-cli flix digest --json --mark-seen
+streamcraft flix digest --json --mark-seen
 # count > 0 → notifier l’utilisateur (WA, mail, …) avec la liste 1…N
 # count = 0 → ne rien envoyer
 ```
@@ -165,15 +178,15 @@ Ensuite l’utilisateur répond `1` / `2,4` → `flix pick … --enqueue --json`
 ## Commandes
 
 ```
-openstream-cli download <url> [options]
-openstream-cli fetch <pageURL> [--detect-only|--auto-download] [options]
-openstream-cli season <pageURL|showName> [--list-only|--auto-download] [--show NAME] [--season N] [options]
-openstream-cli flix scan|digest|bootstrap|seen|pick … [options]
-openstream-cli status [jobId]
-openstream-cli list
-openstream-cli wait <jobId>
-openstream-cli cancel <jobId>
-openstream-cli ping | open <url> | inbox | help
+streamcraft download <url> [options]
+streamcraft fetch <pageURL> [--detect-only|--auto-download] [options]
+streamcraft season <pageURL|showName> [--list-only|--auto-download] [--show NAME] [--season N] [options]
+streamcraft flix scan|digest|bootstrap|seen|pick … [options]
+streamcraft status [jobId]
+streamcraft list
+streamcraft wait <jobId>
+streamcraft cancel <jobId>
+streamcraft ping | open <url> | inbox | help
 ```
 
 ### Flix — digest nouveautés (hubs favoris)
@@ -181,11 +194,11 @@ openstream-cli ping | open <url> | inbox | help
 Scanne le RSS des **homepages** en favoris (ex. `{origin}/engine/rss.php` sur CMS courants). **Propose** un digest numéroté — **n’auto-télécharge pas**.
 
 ```
-openstream-cli flix scan [--json] [--max N] [--since ISO|Nd]
-openstream-cli flix digest [--json] [--max N] [--mark-seen]
-openstream-cli flix bootstrap [--json]
-openstream-cli flix seen list|clear [--json]
-openstream-cli flix pick <n|n,m> [--enqueue] [--json]
+streamcraft flix scan [--json] [--max N] [--since ISO|Nd]
+streamcraft flix digest [--json] [--max N] [--mark-seen]
+streamcraft flix bootstrap [--json]
+streamcraft flix seen list|clear [--json]
+streamcraft flix pick <n|n,m> [--enqueue] [--json]
 ```
 
 | Commande | Effet |

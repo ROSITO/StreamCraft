@@ -16,8 +16,8 @@ default-members = [
 version = "0.2.0"
 edition = "2024"
 license = "MIT"
-authors = ["StreamCraft contributors"]
-repository = "https://github.com/ROSITO/StreamCraft"
+authors = ["OpenStream contributors"]
+repository = "https://github.com/openstream-app/openstream"
 
 [workspace.dependencies]
 anyhow = "1"

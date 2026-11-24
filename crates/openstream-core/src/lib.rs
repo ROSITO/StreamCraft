@@ -1,4 +1,4 @@
-//! StreamCraft core library — media detection, parsers, download, stores, agent helpers.
+//! OpenStream core library — media detection, parsers, download, stores, agent helpers.
 
 pub mod agent;
 pub mod assemble;

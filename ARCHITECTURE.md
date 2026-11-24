@@ -1,4 +1,4 @@
-# ARCHITECTURE.md — StreamCraft
+# ARCHITECTURE.md — OpenStream
 
 Contrats techniques et frontières de modules.  
 **Stack courante (D020) :** Rust + Tauri 2 (macOS / Windows / Linux).  
@@ -23,7 +23,7 @@ Complète le PRD. En cas de doute sur le *quoi*, voir le PRD ; sur le *comment d
   ▼
 openstream-core ──► media / download / assemble / store / agent
   │
-  ├── openstream-cli (clap, JSON Lines)
+  ├── openstream-cli → binary `streamcraft` (clap, JSON Lines)
   └── openstream-ffmpeg (sidecar resolve + spawn)
 ```
 
@@ -79,7 +79,7 @@ Flux de données principal : **navigation → observation réseau → détection
 Chemin agent (sans UI) :
 
 ```
-openstream-cli → OpenStreamCore (fetch/season/flix/download)
+`streamcraft` (crate openstream-cli) → OpenStreamCore (fetch/season/flix/download)
               → parsers / DownloadQueue / FFmpeg Helpers
               → JSON Lines (stdout) + exit code
               → flix : RSS hubs favoris → digest JSON (pas de download auto)
@@ -180,7 +180,7 @@ openstream-cli → OpenStreamCore (fetch/season/flix/download)
   - `HeadlessBrowserSession` (WKWebView offscreen) pour détection page + titres
   - `EpisodeEnumerator` : catalogue `/data/eps_{id}.txt`, pattern watch `/tv/{id}/s/{S}/e/{E}`, liens DOM
   - FFmpeg via `Helpers/` à côté du binaire (même stratégie D017)
-  - DB jobs : `Application Support/StreamCraft/cli-store/` (`--shared-db` pour l’app)
+  - DB jobs : `Application Support/OpenStream/cli-store/` (`--shared-db` pour l’app)
   - Pont GUI optionnel : inbox + `LocalCommandServer` (`--via-app`)
 
 ### Logging
@@ -245,7 +245,7 @@ enum DownloadState: Sendable {
 
 | Target | Contenu |
 |--------|---------|
-| `StreamCraft` | App SwiftUI, entry point |
+| `OpenStream` | App SwiftUI, entry point |
 | `OpenStreamCore` | Protocols, modèles, coordinators |
 | `OpenStreamBrowser` | WKWebView wrapper, cookie bridge |
 | `OpenStreamMedia` | Detector, HLS/DASH parsers |

@@ -48,8 +48,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            target/release/openstream-cli*
-            target/release/openstream-cli.exe
+            target/release/streamcraft*
+            target/release/streamcraft.exe
             apps/desktop/src-tauri/target/release/bundle/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -20,6 +20,7 @@ pub enum ViaAppError {
 #[serde(tag = "cmd", rename_all = "snake_case")]
 pub enum ViaAppRequest {
     Fetch { url: String },
+    Open { url: String },
     Ping,
 }
 
@@ -29,6 +30,7 @@ pub enum ViaAppResponse {
     Pong,
     Html { url: String, html: String, title: Option<String> },
     Error { message: String },
+    Opened { url: String },
 }
 
 pub fn default_addr() -> String {
@@ -83,6 +85,7 @@ async fn handle_conn(stream: TcpStream) -> Result<(), ViaAppError> {
         let req: ViaAppRequest = serde_json::from_str(&line)?;
         let resp = match req {
             ViaAppRequest::Ping => ViaAppResponse::Pong,
+            ViaAppRequest::Open { url } => ViaAppResponse::Opened { url },
             ViaAppRequest::Fetch { url } => ViaAppResponse::Error {
                 message: format!(
                     "Fetch via GUI WebView not wired for {url}; use scrape CLI or open the page in-app"

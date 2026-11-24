@@ -103,3 +103,108 @@ fn strip_cdata(s: &str) -> String {
     }
     t.to_string()
 }
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FlixDigestItem {
+    pub n: usize,
+    pub id: String,
+    pub url: String,
+    pub title: String,
+    pub show: Option<String>,
+    pub season: Option<u32>,
+    /// "season" or "fetch"
+    pub mode: String,
+    pub display: String,
+    pub source: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct FlixLastDigest {
+    pub updated: Option<DateTime<Utc>>,
+    pub items: Vec<FlixDigestItem>,
+}
+
+impl FlixLastDigest {
+    pub fn path() -> std::path::PathBuf {
+        dirs::data_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+            .join("StreamCraft")
+            .join("flix_last_digest.json")
+    }
+
+    pub fn load() -> Self {
+        std::fs::read_to_string(Self::path())
+            .ok()
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default()
+    }
+
+    pub fn save(&self) -> Result<(), FlixError> {
+        let path = Self::path();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(path, serde_json::to_string_pretty(self).unwrap())?;
+        Ok(())
+    }
+
+    pub fn pick(&self, indices: &[usize]) -> Vec<FlixDigestItem> {
+        indices
+            .iter()
+            .filter_map(|n| self.items.iter().find(|i| i.n == *n).cloned())
+            .collect()
+    }
+}
+
+/// Parse "Show - Saison 4" / "Show — S4" → (show, season).
+pub fn parse_show_season(title: &str) -> (Option<String>, Option<u32>) {
+    let re = regex::Regex::new(
+        r"(?i)^(.+?)\s*[-–—]\s*(?:Saison|Season|S)\s*(\d+)\s*$",
+    )
+    .unwrap();
+    if let Some(c) = re.captures(title.trim()) {
+        let show = c.get(1).map(|m| m.as_str().trim().to_string());
+        let season = c.get(2).and_then(|m| m.as_str().parse().ok());
+        return (show, season);
+    }
+    (None, None)
+}
+
+pub fn digest_item_from_flix(n: usize, it: &FlixItem) -> FlixDigestItem {
+    let (show, season) = parse_show_season(&it.title);
+    let mode = if season.is_some() { "season" } else { "fetch" };
+    let display = if let (Some(s), Some(se)) = (&show, season) {
+        format!("{s} — S{se}")
+    } else {
+        it.title.clone()
+    };
+    FlixDigestItem {
+        n,
+        id: it.id.clone(),
+        url: it.link.clone(),
+        title: it.title.clone(),
+        show,
+        season,
+        mode: mode.into(),
+        display,
+        source: it.hub.clone(),
+    }
+}
+
+/// Guess RSS URL from a hub origin bookmark (`{origin}/engine/rss.php`).
+pub fn rss_url_for_hub(hub_url: &str) -> Option<String> {
+    let u = url::Url::parse(hub_url).ok()?;
+    let origin = format!("{}://{}", u.scheme(), u.host_str()?);
+    Some(format!("{origin}/engine/rss.php"))
+}
+
+pub fn flix_data_dir() -> std::path::PathBuf {
+    dirs::data_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("StreamCraft")
+}
+
+pub fn seen_path() -> std::path::PathBuf {
+    flix_data_dir().join("flix_seen.json")
+}

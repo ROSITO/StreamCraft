@@ -2914,6 +2914,7 @@ name = "openstream-cli"
 version = "0.2.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "clap",
  "dirs 6.0.0",
  "openstream-core",
