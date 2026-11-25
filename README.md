@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg" /></a>
-  <a href="https://github.com/ROSITO/OpenStream/releases"><img alt="Release" src="https://img.shields.io/github/v/release/ROSITO/OpenStream?label=release" /></a>
+  <a href="https://github.com/ROSITO/StreamCraft/releases"><img alt="Release" src="https://img.shields.io/github/v/release/ROSITO/StreamCraft?label=release" /></a>
   <a href="docs/cli.md"><img alt="CLI" src="https://img.shields.io/badge/CLI-streamcraft-6B21A8.svg" /></a>
 </p>
 
@@ -34,7 +34,7 @@
 
 ## Install
 
-Download **v0.3.0** (Craft GUI) from [Releases](https://github.com/ROSITO/OpenStream/releases):
+Download **v0.3.0** (Craft GUI) from [Releases](https://github.com/ROSITO/StreamCraft/releases):
 
 | Asset | Platform |
 |-------|----------|
@@ -47,15 +47,17 @@ Download **v0.3.0** (Craft GUI) from [Releases](https://github.com/ROSITO/OpenSt
 ### macOS (quick)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ROSITO/OpenStream/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ROSITO/StreamCraft/main/scripts/install.sh | bash
 # → /Applications/StreamCraft.app
 ```
+
+> **OpenStream** (Swift) reste sur [`ROSITO/OpenStream`](https://github.com/ROSITO/OpenStream). Ce dépôt est uniquement la stack Rust / Craft.
 
 ### Linux CLI
 
 ```bash
 curl -fL -o streamcraft \
-  https://github.com/ROSITO/OpenStream/releases/latest/download/streamcraft-linux-aarch64
+  https://github.com/ROSITO/StreamCraft/releases/latest/download/streamcraft-linux-aarch64
 chmod +x streamcraft
 ./scripts/fetch-ffmpeg.sh   # or put ffmpeg/ffprobe in ./Helpers/
 ./streamcraft doctor
