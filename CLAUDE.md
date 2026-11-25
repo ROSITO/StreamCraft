@@ -1,4 +1,4 @@
-# CLAUDE.md — OpenStream
+# CLAUDE.md — StreamCraft
 
 Instructions permanentes pour tout agent (Cursor, Claude Code, Codex) travaillant sur ce dépôt.
 
@@ -6,19 +6,20 @@ Instructions permanentes pour tout agent (Cursor, Claude Code, Codex) travaillan
 
 ## Projet
 
-**OpenStream** est une application **desktop cross-platform** (macOS, Windows, Linux) open source qui télécharge des flux vidéo (HLS, MPEG-DASH, MP4 progressif).
+**StreamCraft** (anciennement OpenStream) est une application **desktop cross-platform** (macOS, Windows, Linux) open source qui télécharge des flux vidéo (HLS, MPEG-DASH, MP4 progressif).
 
 - Stack : **Rust 2024**, Tauri 2, React/Vite, Tokio, reqwest, rusqlite, FFmpeg sidecar
+- CLI headless : binaire **`streamcraft`** (crate Cargo `openstream-cli`)
 - Legacy Swift : `archive/swift/` (gelé, tag `pre-rust`)
 - Licence : **MIT** (`LICENSE`)
 
 Documents de référence (lire dans cet ordre) :
 
-1. `PRD_OpenStream.md` — vision et périmètre
+1. `PRD_OpenStream.md` — vision et périmètre (nom de fichier historique ; produit = StreamCraft)
 2. `ARCHITECTURE.md` — modules, frontières, contrats
 3. `ROADMAP.md` — phases et critères de done
 4. `MEMORY.md` — décisions figées et pièges connus
-5. `OpenStreamCLI/README.md` — contrat agentique (`streamcraft` / crate `openstream-cli` : routage NL, JSON / `season` / `flix`, exit codes)
+5. `docs/cli.md` — contrat agentique (`streamcraft` : routage NL, JSON / `season` / `flix`, exit codes)
 6. `README.md` — install / build public
 
 ---
@@ -43,13 +44,13 @@ Documents de référence (lire dans cet ordre) :
 
 - Rust edition 2024, Tokio pour l'async ; erreurs typées (`thiserror` / `anyhow` aux frontières bin).
 - Logs via `tracing` (pas de `println!` en prod hors contrat CLI JSON Lines).
-- Dépendances workspace dans le `Cargo.toml` racine ; crates : `openstream-core`, `openstream-cli`, `openstream-ffmpeg`, `apps/desktop`.
+- Dépendances workspace dans le `Cargo.toml` racine ; crates : `openstream-core`, `openstream-cli` → **`streamcraft`**, `openstream-ffmpeg`, `apps/desktop`.
 - Chaque crate livrée avec tests unitaires ciblés avant la phase ROADMAP suivante.
 - FFmpeg **uniquement** via process/sidecar (`openstream-ffmpeg`) — pas de link libav*.
 
 ### Git / fichiers
 
-- Ne pas committer de secrets, clés API, binaires FFmpeg précompilés volumineux : utiliser `scripts/fetch-bundled-ffmpeg.sh` → `OpenStream/Resources/Helpers/` (gitignorés).
+- Ne pas committer de secrets, clés API, binaires FFmpeg précompilés volumineux : utiliser `scripts/fetch-ffmpeg.sh` → `resources/ffmpeg/` (gitignorés).
 - Ne pas créer de docs markdown non demandés.
 - Commits uniquement sur demande explicite de l'utilisateur.
 

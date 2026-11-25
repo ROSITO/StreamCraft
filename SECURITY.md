@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Security fixes target the latest release on [GitHub Releases](https://github.com/ROSITO/StreamCraft/releases) and the `main` branch.
+Security fixes target the latest release on [GitHub Releases](https://github.com/ROSITO/StreamCraft/releases).
 
 ## Scope
 
@@ -12,25 +12,17 @@ StreamCraft downloads **clear** media streams the user can already access. It do
 - decrypt protected content
 - circumvent authentication or captchas
 
-Please do **not** open issues asking for those capabilities.
+Please do not open issues asking for those capabilities.
 
 ## Reporting a vulnerability
 
-Prefer a **private** [GitHub security advisory](https://github.com/ROSITO/StreamCraft/security/advisories/new) on this repository.
-
-Alternatively contact the maintainer via the address on the [GitHub profile](https://github.com/ROSITO).
+Email the maintainer via the address on the [GitHub profile](https://github.com/ROSITO) (or open a **private** security advisory on the repo if enabled).
 
 Include:
 
-- StreamCraft / commit SHA
-- OS version
+- StreamCraft version / commit
+- OS / platform version
 - Steps to reproduce
 - Impact (data leak, local code exec, unexpected network, …)
 
 We aim to acknowledge reports within a few days.
-
-## Out of scope
-
-- Issues that only reproduce on DRM-protected streams
-- Social-engineering requests for piracy tooling
-- Third-party FFmpeg CVEs (report upstream; we vendor sidecars via fetch scripts)

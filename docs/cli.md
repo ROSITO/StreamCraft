@@ -390,7 +390,7 @@ Sous-dossier d’export selon nomenclature :
 - série (`season --auto-download`) : `{show}/Saison {season}/S{season}E{episode}.mp4`
 
 Exemple (machine de build, `--out` forcé) :  
-`/tmp/openstream-out/Example Show/Saison 01/S01E01.mp4`
+`/tmp/streamcraft-out/Example Show/Saison 01/S01E01.mp4`
 
 Ne pas mélanger CLI et GUI sans `--shared-db`.
 
@@ -406,7 +406,7 @@ Ne pas mélanger CLI et GUI sans `--shared-db`.
   --kind mp4 \
   --referer "$PAGE_URL" \
   --title "Show S01E04" \
-  --out /tmp/openstream-out
+  --out /tmp/streamcraft-out
 # exit 0 → dernière ligne event=completed + path
 ```
 
@@ -424,7 +424,7 @@ Ne pas mélanger CLI et GUI sans `--shared-db`.
 "$CLI" fetch "$PAGE_URL" \
   --auto-download --json \
   --title "Masterplan" \
-  --out /tmp/openstream-out \
+  --out /tmp/streamcraft-out \
   --timeout 60
 # detected → queued → progress… → assembling → completed
 ```
@@ -521,13 +521,13 @@ on failed: surface message + exit code
 
 | Fichier | Rôle |
 |---------|------|
-| `OpenStreamCLI/CLI.swift` | Parsing args, orchestration |
-| `OpenStreamCore/AgentJSON.swift` | `AgentEvent` + exit codes |
-| `OpenStreamCore/FlixService.swift` | Digest RSS / seen / pick |
-| `OpenStreamCore/SeasonResolver.swift` | Nom de série → page via favoris |
-| `OpenStreamCore/EpisodeEnumerator.swift` | Catalogue / watch-path / DOM |
-| `OpenStreamCore/HeadlessDownloadService.swift` | Queue download sans UI |
-| `OpenStreamCore/HeadlessBrowserSession.swift` | WKWebView offscreen + titres / liens épisode |
-| `OpenStream/Browser/PageTitleResolver.swift` | Nettoyage titres |
+| `archive/swift/OpenStreamCLI/CLI.swift` | Parsing args, orchestration |
+| `archive/swift/OpenStreamCore/AgentJSON.swift` | `AgentEvent` + exit codes |
+| `archive/swift/OpenStreamCore/FlixService.swift` | Digest RSS / seen / pick |
+| `archive/swift/OpenStreamCore/SeasonResolver.swift` | Nom de série → page via favoris |
+| `archive/swift/OpenStreamCore/EpisodeEnumerator.swift` | Catalogue / watch-path / DOM |
+| `archive/swift/OpenStreamCore/HeadlessDownloadService.swift` | Queue download sans UI |
+| `archive/swift/OpenStreamCore/HeadlessBrowserSession.swift` | WKWebView offscreen + titres / liens épisode |
+| `archive/swift/OpenStream/Browser/PageTitleResolver.swift` | Nettoyage titres |
 
 Décisions : **MEMORY.md → D018** (CLI), **D019** (flix).

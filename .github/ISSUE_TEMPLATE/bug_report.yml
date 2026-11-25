@@ -1,12 +1,12 @@
 name: Bug report
-description: Something broken in the macOS app or streamcraft
+description: Something broken in the desktop app or streamcraft CLI
 title: "[Bug]: "
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        OpenStream does **not** support DRM bypass or decryption. Reports asking for that will be closed.
+        StreamCraft does **not** support DRM bypass or decryption. Reports asking for that will be closed.
   - type: input
     id: version
     attributes:
@@ -18,8 +18,8 @@ body:
   - type: input
     id: macos
     attributes:
-      label: macOS version
-      placeholder: "15.x / 14.x"
+      label: OS / platform
+      placeholder: "macOS 15 / Ubuntu 24 / Windows 11"
     validations:
       required: true
   - type: dropdown
