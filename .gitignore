@@ -78,3 +78,4 @@ resources/ffmpeg/
 resources/Helpers/
 archive/swift/OpenStream/Resources/Helpers/ffmpeg
 archive/swift/OpenStream/Resources/Helpers/ffprobe
+/dist/

@@ -1035,7 +1035,6 @@ function AvSyncSheet({
     setMsg("…");
     try {
       const r = await fn();
-      const text = typeof r === "string" ? r : (r as { user_message?: string }).user_message || JSON.stringify(r);
       // AvSyncResult is tagged enum from Rust — format message client-side
       const pretty = formatSyncResult(r);
       setMsg(pretty);
@@ -1254,7 +1253,9 @@ function formatSyncResult(r: unknown): string {
     const v = o.already_aligned as { delta_seconds: number };
     return `Déjà aligné (Δ ${Math.round(v.delta_seconds * 1000)} ms)`;
   }
-  if (o === "missing_audio_or_video" || "MissingAudioOrVideo" in o) return "Fichier sans piste audio et vidéo";
+  if ("missing_audio_or_video" in o || "MissingAudioOrVideo" in o) {
+    return "Fichier sans piste audio et vidéo";
+  }
   return JSON.stringify(r);
 }
 
