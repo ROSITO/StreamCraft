@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use thiserror::Error;
 use url::Url;
 
+use crate::media::cdn_gate::{apply_gate_token, gate_token};
 use crate::media::hls::{HLSParser, HLSPlaylistKind};
 use crate::media::models::{ManifestKind, MediaVariant};
 
@@ -65,6 +66,7 @@ pub fn plan_dash_units(units: Vec<DownloadUnit>) -> DownloadPlan {
 }
 
 async fn plan_hls(client: &reqwest::Client, url: &Url) -> Result<DownloadPlan, PlanError> {
+    let gate = gate_token(url);
     let text = client
         .get(url.clone())
         .header(
@@ -99,7 +101,7 @@ async fn plan_hls(client: &reqwest::Client, url: &Url) -> Result<DownloadPlan, P
                 .ok_or_else(|| PlanError::Message("empty HLS master".into()))?;
             // Skip audio-only playlists named index-a*
             let uri_s = best.uri.as_str().to_lowercase();
-            if uri_s.contains("index-a") && !uri_s.contains("index-v") {
+            let child = if uri_s.contains("index-a") && !uri_s.contains("index-v") {
                 let video = playlist
                     .streams
                     .iter()
@@ -108,11 +110,15 @@ async fn plan_hls(client: &reqwest::Client, url: &Url) -> Result<DownloadPlan, P
                         !u.contains("index-a") || u.contains("index-v")
                     })
                     .max_by_key(|s| s.bandwidth.unwrap_or(0));
-                if let Some(v) = video {
-                    return Box::pin(plan_hls(client, &v.uri)).await;
-                }
-            }
-            Box::pin(plan_hls(client, &best.uri)).await
+                video.map(|v| &v.uri).unwrap_or(&best.uri)
+            } else {
+                &best.uri
+            };
+            let child = match gate.as_deref() {
+                Some(tok) => apply_gate_token(child, tok),
+                None => child.clone(),
+            };
+            Box::pin(plan_hls(client, &child)).await
         }
         HLSPlaylistKind::Media => {
             let media = playlist
@@ -121,9 +127,13 @@ async fn plan_hls(client: &reqwest::Client, url: &Url) -> Result<DownloadPlan, P
             let mut units = Vec::new();
             let mut index = 0usize;
             if let Some(map) = media.map_uri {
+                let map_url = match gate.as_deref() {
+                    Some(tok) => apply_gate_token(&map, tok),
+                    None => map,
+                };
                 units.push(DownloadUnit {
                     index,
-                    url: map,
+                    url: map_url,
                     file_name: format!("{index:05}_init.mp4"),
                     duration: None,
                     is_init: true,
@@ -144,9 +154,13 @@ async fn plan_hls(client: &reqwest::Client, url: &Url) -> Result<DownloadPlan, P
                 } else {
                     ext
                 };
+                let seg_url = match gate.as_deref() {
+                    Some(tok) => apply_gate_token(&seg.uri, tok),
+                    None => seg.uri.clone(),
+                };
                 units.push(DownloadUnit {
                     index,
-                    url: seg.uri.clone(),
+                    url: seg_url,
                     file_name: format!("{index:05}_seg.{file_ext}"),
                     duration: Some(seg.duration),
                     is_init: false,

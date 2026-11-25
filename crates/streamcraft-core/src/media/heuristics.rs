@@ -8,8 +8,41 @@ impl MediaURLHeuristics {
     const MEDIA_PATH_TOKENS: &'static [&'static str] =
         &["m3u8", "mpd", ".mp4", "manifest", "playlist"];
 
+    /// Player embed pages that usually hide the real m3u8 until scraped / played.
+    /// Callers: `detect::ingest_candidate`, PopupGuard `maybeMedia` (browser).
+    /// User: rizmov page → Detected empty (embed iframe not bubbled).
+    const EMBED_HOST_TOKENS: &'static [&'static str] = &[
+        "vidzy.org",
+        "vidzy.",
+        "sharecloudy.com",
+        "sharecloudy.",
+        "dood.",
+        "streamtape.",
+        "filemoon.",
+        "voe.sx",
+        "upstream.to",
+    ];
+
     pub fn looks_like_media(url: &Url, mime_type: Option<&str>) -> bool {
         Self::looks_like_media_core(url, mime_type)
+    }
+
+    pub fn looks_like_embed_player(url: &Url) -> bool {
+        let hay = url.as_str().to_lowercase();
+        let path = url.path().to_lowercase();
+        if path.contains("/embed-")
+            || path.contains("/embed/")
+            || path.contains("embed-")
+            || path.contains("/iframe/")
+        {
+            return true;
+        }
+        let host_hit = Self::EMBED_HOST_TOKENS.iter().any(|t| hay.contains(t));
+        host_hit
+            && (path.contains("embed")
+                || path.contains("iframe")
+                || hay.contains("embed")
+                || hay.contains("iframe"))
     }
 
     pub fn looks_like_media_core(url: &Url, mime_type: Option<&str>) -> bool {
@@ -17,6 +50,9 @@ impl MediaURLHeuristics {
             if Self::mime_looks_like_media(mime) {
                 return true;
             }
+        }
+        if Self::looks_like_embed_player(url) {
+            return true;
         }
         let ext = url
             .path_segments()

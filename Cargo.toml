@@ -4,31 +4,37 @@ members = [
     "crates/streamcraft-core",
     "crates/streamcraft-cli",
     "crates/streamcraft-ffmpeg",
-    "apps/desktop/src-tauri",
+    "apps/streamcraft",
+    # "apps/desktop/src-tauri",  # legacy Tauri; exclude — wry 0.57 vs egui wry 0.53
 ]
 default-members = [
     "crates/streamcraft-core",
     "crates/streamcraft-cli",
     "crates/streamcraft-ffmpeg",
+    "apps/streamcraft",
 ]
 
 [workspace.package]
-version = "0.2.1"
+version = "0.3.0"
 edition = "2024"
 license = "MIT"
 authors = ["StreamCraft contributors"]
 repository = "https://github.com/ROSITO/StreamCraft"
 
+# Single craft-libs pin for every storytold git dep (D021).
 [workspace.dependencies]
 anyhow = "1"
 bytes = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std", "serde"] }
 clap = { version = "4", features = ["derive"] }
 dirs = "6"
+eframe = { version = "0.37", default-features = false, features = ["wgpu", "accesskit", "default_fonts", "clipboard", "wayland", "x11"] }
+egui = { version = "0.37", features = ["default_fonts"] }
 futures = "0.3"
 quick-xml = { version = "0.37", features = ["serialize"] }
 regex = "1"
 reqwest = { version = "0.12", default-features = false, features = ["json", "cookies", "gzip", "brotli", "deflate", "rustls-tls", "stream"] }
+rfd = "0.15"
 rusqlite = { version = "0.32", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -39,6 +45,14 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 url = { version = "2", features = ["serde"] }
 uuid = { version = "1", features = ["v4", "serde"] }
+rmcp = { version = "3.5", default-features = false, features = ["server", "macros", "transport-io"] }
+schemars = "1"
+cap-std = "4"
+
+
+craft-ai-core = { git = "https://github.com/storytold/craft-libs", rev = "a4db799563c9ccd7217e1731ec34c58f6ba57248", package = "craft-ai-core" }
+craft-jsonrpc = { git = "https://github.com/storytold/craft-libs", rev = "a4db799563c9ccd7217e1731ec34c58f6ba57248", package = "craft-jsonrpc", features = ["async-lines"] }
+
 streamcraft-core = { path = "crates/streamcraft-core" }
 streamcraft-ffmpeg = { path = "crates/streamcraft-ffmpeg" }
 

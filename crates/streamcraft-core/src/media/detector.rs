@@ -1,5 +1,6 @@
 use uuid::Uuid;
 
+use super::cdn_gate::suggest_urlset_audio_siblings;
 use super::hls::{HLSPlaylist, HLSPlaylistKind, HLSRenditionKind};
 use super::models::{
     DetectedMedia, ManifestKind, MediaClassification, MediaProtection, MediaTrack, MediaTrackKind,
@@ -163,6 +164,24 @@ impl MediaDetector {
                 let preferred = variant.id;
                 let segment_count = playlist.media.as_ref().map(|m| m.segments.len());
                 let duration_seconds = playlist.media.as_ref().map(|m| m.total_duration());
+                // Demuxed CDN video (index-v*) has no EXT-X-MEDIA — invent FR/EN siblings.
+                let audio_tracks = if audio_tracks.is_empty() {
+                    suggest_urlset_audio_siblings(&candidate.url)
+                        .into_iter()
+                        .map(|(url, lang, name, is_default)| MediaTrack {
+                            id: Uuid::new_v4(),
+                            kind: MediaTrackKind::Audio,
+                            language: Some(lang.into()),
+                            name: Some(name.into()),
+                            url,
+                            dash_representation_id: None,
+                            is_default,
+                            codecs: None,
+                        })
+                        .collect()
+                } else {
+                    audio_tracks
+                };
                 DetectedMedia {
                     id: Uuid::new_v4(),
                     source_url: candidate.url.clone(),

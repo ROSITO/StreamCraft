@@ -12,6 +12,9 @@ use crate::assemble::{av_sync, remux};
 use crate::download::normalize::normalize_segment_file;
 use crate::download::planner::{plan_for_variant, prefix_units};
 use crate::download::queue::DownloadQueue;
+use url::Url;
+
+use crate::media::cdn_gate::{apply_gate_token, best_gate_token_for, has_gate_token};
 use crate::media::export_naming::{ExportMetadata, ExportNaming};
 use crate::media::models::{DetectedMedia, DownloadJob, DownloadState, ManifestKind, MediaProtection, MediaTrack, MediaVariant};
 use crate::store::history::{DownloadHistoryStore, HistoryEntry};
@@ -144,7 +147,8 @@ impl DownloadService {
         let cookie = job.cookie_header.clone();
         let assemble_only = job.assemble_only;
 
-        let video_plan = plan_for_variant(&self.client, &job.selected_variant, job.media.kind)
+        let (variant, audio_opt) = unlock_hls_urls(&job);
+        let video_plan = plan_for_variant(&self.client, &variant, job.media.kind)
             .await
             .map_err(|e| e.to_string())?;
 
@@ -152,7 +156,7 @@ impl DownloadService {
             return Err("empty download plan".into());
         }
 
-        let audio_plan = if let Some(audio) = job.selected_audio.as_ref() {
+        let audio_plan = if let Some(audio) = audio_opt.as_ref() {
             let audio_variant = MediaVariant::new(audio.url.clone());
             match plan_for_variant(&self.client, &audio_variant, ManifestKind::Hls).await {
                 Ok(p) if !p.units.is_empty() => Some(prefix_units(p, "audio/")),
@@ -464,4 +468,32 @@ fn origin_hint(referer: &str) -> String {
         .unwrap_or_else(|| referer.to_string())
 }
 
-use url::Url;
+/// Propagate browser-captured `gk` onto variant / audio playlist URLs before planning.
+fn unlock_hls_urls(job: &DownloadJob) -> (MediaVariant, Option<MediaTrack>) {
+    let anchor = &job.selected_variant.playlist_url;
+    let mut urls = vec![&job.selected_variant.playlist_url, &job.media.source_url];
+    for v in &job.media.variants {
+        urls.push(&v.playlist_url);
+    }
+    for t in &job.media.audio_tracks {
+        urls.push(&t.url);
+    }
+    if let Some(a) = job.selected_audio.as_ref() {
+        urls.push(&a.url);
+    }
+    let Some(tok) = best_gate_token_for(Some(anchor), urls) else {
+        return (job.selected_variant.clone(), job.selected_audio.clone());
+    };
+    let mut variant = job.selected_variant.clone();
+    if !has_gate_token(&variant.playlist_url) {
+        variant.playlist_url = apply_gate_token(&variant.playlist_url, &tok);
+    }
+    let audio = job.selected_audio.as_ref().map(|a| {
+        let mut t = a.clone();
+        if !has_gate_token(&t.url) {
+            t.url = apply_gate_token(&t.url, &tok);
+        }
+        t
+    });
+    (variant, audio)
+}

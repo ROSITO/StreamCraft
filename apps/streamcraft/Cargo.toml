@@ -1,0 +1,41 @@
+[package]
+name = "streamcraft-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "StreamCraft Craft desktop app (egui)"
+publish = false
+default-run = "streamcraft-app"
+
+[[bin]]
+name = "streamcraft-app"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+chrono.workspace = true
+dirs.workspace = true
+eframe.workspace = true
+egui.workspace = true
+reqwest.workspace = true
+rfd.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+streamcraft-core.workspace = true
+streamcraft-ffmpeg.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+url.workspace = true
+uuid.workspace = true
+wry = { version = "0.53", default-features = true }
+raw-window-handle = "0.6"
+craft-ai-core.workspace = true
+open = "5"
+
+# Parité Swift/Tauri NetworkObserver — WKScriptMessageHandler all-frames (D008)
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = { version = "0.3.2", features = ["NSString", "NSObject", "NSDictionary", "NSURL"] }
+objc2-app-kit = { version = "0.3.2", features = ["NSApplication", "NSImage"] }
+objc2-web-kit = { version = "0.3.2", features = ["WKWebView", "WKUserContentController", "WKScriptMessage", "WKScriptMessageHandler", "WKFrameInfo", "WKUserScript", "WKWebViewConfiguration"] }

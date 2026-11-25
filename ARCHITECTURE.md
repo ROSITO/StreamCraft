@@ -1,8 +1,8 @@
 # ARCHITECTURE.md — StreamCraft
 
 Contrats techniques et frontières de modules.  
-**Stack courante (D020) :** Rust + Tauri 2 (macOS / Windows / Linux).  
-Le code Swift historique est sous `archive/swift/` (référence comportementale).
+**Stack courante (D021) :** Rust + egui/eframe Craft app + wry browser + CLI/MCP (macOS / Windows / Linux).  
+Legacy : Swift `archive/swift/` ; Tauri `archive/tauri-desktop/`.
 
 Complète le PRD. En cas de doute sur le *quoi*, voir le PRD ; sur le *comment découper*, ce fichier gagne.
 
@@ -12,19 +12,17 @@ Complète le PRD. En cas de doute sur le *quoi*, voir le PRD ; sur le *comment d
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  UI (Tauri + React/Vite)                                │
-│  Browser pane · DetectedMediaList · Queue · Settings    │
-└───────────────────────────┬─────────────────────────────┘
-                            │ invoke / events
-┌───────────────────────────▼─────────────────────────────┐
-│  apps/desktop (Tauri host)                              │
-│  commands · browser bridge (JS inject D008) · cookies   │
-└─┬───────────────────────────────────────────────────────┘
-  ▼
+│  UI (egui / eframe) — binary `streamcraft-app`          │
+│  Queue · Detected · Settings · craft-ai-core roles      │
+└───────────────┬─────────────────────┬───────────────────┘
+                │                     │ wry window (D008)
+                │                     ▼
+                │              BrowserHost (media hooks)
+                ▼
 streamcraft-core ──► media / download / assemble / store / agent
   │
-  ├── streamcraft-cli → binary `streamcraft` (clap, JSON Lines)
-  └── streamcraft-ffmpeg (sidecar resolve + spawn)
+  ├── streamcraft-cli → binary `streamcraft` (JSON Lines + `mcp`)
+  └── streamcraft-ffmpeg (bundled Helpers / resources/ffmpeg)
 ```
 
 Flux : **navigation → observation → détection → parse → download → FFmpeg → export → history**.

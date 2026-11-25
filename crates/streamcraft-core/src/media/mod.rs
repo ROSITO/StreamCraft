@@ -1,3 +1,4 @@
+pub mod cdn_gate;
 pub mod dash;
 pub mod detector;
 pub mod export_naming;

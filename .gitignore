@@ -79,3 +79,9 @@ resources/Helpers/
 archive/swift/OpenStream/Resources/Helpers/ffmpeg
 archive/swift/OpenStream/Resources/Helpers/ffprobe
 /dist/
+
+# Cross / Docker Linux builds
+target-linux/
+.cargo-linux/
+
+target-linux-bookworm/

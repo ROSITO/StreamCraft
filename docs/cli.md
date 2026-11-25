@@ -13,6 +13,26 @@ cargo run -p streamcraft-cli -- --help
 
 ---
 
+
+## MCP (agents Craft)
+
+Serveur MCP stdio via **rmcp** + racines **cap-std** (D021). **Refuse** de démarrer sans les deux racines :
+
+```bash
+streamcraft mcp \
+  --automation-read-root "$HOME/Downloads/StreamCraft" \
+  --automation-write-root "$HOME/Downloads/StreamCraft"
+```
+
+Tools : `doctor`, `download`, `fetch`, `season`, `flix_digest`, `flix_pick`, `status`, `list`, `wait`, `cancel`.
+Transport : **NDJSON** lines (craft-jsonrpc / rmcp), pas Content-Length.  
+Les exports passent par `--automation-write-root` (env `STREAMCRAFT_EXPORT_DIR` pour les sous-invocations).  
+Exemple client : `.mcp.json` à la racine du dépôt.
+
+GUI Craft : `streamcraft-app` (egui + wry). Packaging : `./scripts/package-macos-app.sh` (macOS .app), `./scripts/docker-linux-test.sh` (Linux build+test), `./scripts/package-craft-release.sh` (bare bins).  
+Release artefacts (v0.3+) : `StreamCraft.app-macos-aarch64.zip`, `streamcraft-macos-aarch64`, `streamcraft-linux-aarch64`, `streamcraft-app-linux-aarch64` (+ `SHA256SUMS.txt`). Linux bins target **glibc ≥ 2.34** (Debian bookworm+).
+
+
 ## Install (utilisateurs)
 
 ### Build local

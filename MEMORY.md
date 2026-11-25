@@ -10,13 +10,13 @@ Mémoire projet : décisions figées, contraintes, et pièges.
 
 | Champ | Valeur |
 |-------|--------|
-| Phase roadmap | **Rewrite Rust R0+** (Swift archivé) — voir ROADMAP phases R0–R5 |
-| Code applicatif | Monorepo Rust + Tauri 2 ; Swift gelé dans `archive/swift/` |
+| Phase roadmap | **R6 Craft app** (egui + craft-libs + MCP) — Tauri archivé |
+| Code applicatif | Monorepo Rust ; GUI egui `apps/streamcraft` ; CLI/MCP Craft ; Tauri legacy `apps/desktop` ; Swift `archive/swift/` |
 | Licence | **MIT** (`LICENSE`, 2026) |
-| Bundle ID | `app.streamcraft.StreamCraft` (desktop Tauri ; legacy Swift `app.openstream.OpenStream`) |
+| Bundle ID | `app.streamcraft.StreamCraft` |
 | Nom produit desktop | **StreamCraft** (crates `streamcraft-*`) |
-| Stack | Rust 2024 + Tauri 2 + React/Vite (macOS / Windows / Linux) |
-| Tag legacy | `pre-rust` (MVP Swift macOS) |
+| Stack | Rust 2024 + **egui Craft GUI** (wry enfant) + CLI/MCP + Tokio + FFmpeg ; Tauri hors chemin produit |
+| Tag legacy | `pre-rust` (Swift) ; Tauri era = `pre-craft` |
 
 ---
 
@@ -61,6 +61,8 @@ Mémoire projet : décisions figées, contraintes, et pièges.
 **Pourquoi :** WKWebView n’expose pas un proxy HTTP complet ; cette approche suffit pour détecter `.m3u8` / `.mp4` sur beaucoup de players web sans API privée.
 **Limites :** workers isolés, MediaSource buffered opaque, et certains players obfuscated peuvent échapper — à réévaluer en Phase 2/5 si besoin.
 **Date :** 2026-07-29
+
+**Amendement Craft (egui+wry, 2026-11-25) :** wry `window.ipc` = top-frame only → insuffisant (Detected vide sur rizmov film→iframe). Port exact Tauri/Swift : `apps/streamcraft/src/browser/macos_media_hook.rs` enregistre `WKScriptMessageHandler` `streamcraftMedia` + `MEDIA_HOOKS_JS` `forMainFrameOnly: false` via `WebViewExtMacOS::manager()`, + poller 250 ms (parité `spawn_media_poller`) pour ne pas dépendre des frames egui. Smoke OK : vidzy embed master/`gk=` + rizmov `sharecloudy` → `dotrab` m3u8.
 
 ### D009 — Bundle ID & déploiement
 **Décision :** `app.openstream.OpenStream`, macOS 14.0+, Swift 6, génération via XcodeGen.
@@ -141,7 +143,30 @@ La relance manuelle reste disponible ; elle ne doit plus être le chemin nominal
 **FFmpeg :** sidecars multi-OS dans `resources/ffmpeg/{os-arch}/` (esprit D017).  
 **DRM :** gate réintégrée (`drm_gate` prefs ; refus `#EXT-X-KEY` / ContentProtection).  
 **Date :** 2026-11-24  
-**Source :** plan migration Rust Tauri
+**Source :** plan migration Rust Tauri  
+**Amendement :** remplacé par D021 pour la release Craft ; Tauri n’est plus le shell desktop nominal.
+
+### D021 — Craft app (egui + craft-libs + MCP)
+**Décision :** StreamCraft devient une **Craft app** pour la prochaine release (v0.3).
+- **UI :** egui / eframe (`apps/streamcraft`, binaire `streamcraft-app`) — **pas** de Tauri / React / TS handwritten. Tauri → `archive/tauri-desktop/`.
+- **craft-libs :** pin git unique (`CRAFT_LIBS_REV` dans le `Cargo.toml` workspace) ; deps : `craft-ai-core`, `craft-jsonrpc` (+ craft-ui/window au besoin). Pas de dépendance app→app.
+- **Agents :** `streamcraft mcp` (stdio) **refuse** de démarrer sans `--automation-read-root` et `--automation-write-root` ; I/O fichiers hors racines = erreur. Toute feature GUI a un chemin headless CLI/MCP (D018 conservé).
+- **Nommage binaires (départ Craft SHOULD) :** CLI reste **`streamcraft`** (contrat agent D018 / docs) ; GUI = **`streamcraft-app`**. Les apps Craft siblings utilisent souvent `<app>` GUI + `<app>-cli` ; on inverse volontairement pour ne pas casser les agents existants.
+- **Webview (départ Craft SHOULD #11) :** le produit **exige** un navigateur pour la détection média (D008). Shell = **wry** enfant natif (pas Electron/Tauri, pas d’UI JS). Script d’observation réseau = exception produit documentée ; pas de frontend web app.
+- **FFmpeg :** toujours sidecar process (D005/D017) ; **obligatoire dans les artefacts release** (`resources/ffmpeg/{os-arch}/` + copie `Helpers/` à côté des binaires). `doctor` expose `source` ; packaging échoue si non-bundled.
+- **Version :** workspace → **0.3.0**.
+**Amendement (2026-11-25, alignement Craft siblings) :**
+- Pin craft-libs → **`a4db799…`** (FilmCraft) — `05b99ee` n’a pas `craft-host` / umbrella `craft`.
+- MCP = **`rmcp` 3.5+** + `craft-jsonrpc` async_lines (plus de JSON-RPC hand-rolled).
+- Racines = **`cap-std`** fail-closed à l’ouverture (`AutomationRoots::open`).
+**Amendement (2026-11-25, reprise produit) :**
+- Le premier shell egui était un squelette ; **GUI produit reste egui** (`streamcraft-app`) — design ink-studio violet (`theme.rs`).
+- Parité P0 portée depuis la logique Tauri (`apps/desktop/src-tauri`) vers egui+wry : détection HLS/DASH, cookies, feuille download, queue, settings, mux via core.
+- Tauri (`apps/desktop`) = référence legacy / hors chemin critique ; pas de GUI produit.
+- Craft agent surface : `streamcraft` CLI + `streamcraft mcp` (rmcp / cap-std).
+
+**Date :** 2026-11-25  
+**Source :** décision produit (session Craft)
 
 ---
 
@@ -167,6 +192,7 @@ La relance manuelle reste disponible ; elle ne doit plus être le chemin nominal
 - Live vs VOD : le MVP cible **VOD / playlists finies** (`#EXT-X-ENDLIST`). Live en continu est hors MVP.
 - `EXT-X-MAP` (init segment fMP4) : à gérer dès le support fMP4 HLS, sinon fichiers incomplets.
 - `#EXT-X-KEY` / DRM : **ignoré en version test** (D007) ; **refus obligatoire** avant release publique (D001, Phase 9). Ne pas construire de déchiffrement « en attendant ».
+- **Vidzy / urlset `gk=` (2026-11-25) :** le master froid n’a pas `gk`. Seg 1–9 → 200 ; dès ~seg 10 → **403**. Le player ajoute `gk=` sur les media playlists (`index-v*`). Ce n’est **pas** Tauri vs Craft : même `DownloadService`. Tauri marchait parce que PopupGuard capturait l’URL déjà unlockée. Fix : préférer / propager `gk` (`media/cdn_gate.rs`) ; ne pas auto-enqueue un master verrouillé.
 
 ### DASH
 - Phase 6 : `DASHParser` (SegmentList / SegmentTemplate / BaseURL). Audio DASH auto-inclus si une seule piste ; sinon sheet. Subs en sidecar `.vtt`. Pas de gate DRM (Phase 9).
@@ -232,3 +258,6 @@ La relance manuelle reste disponible ; elle ne doit plus être le chemin nominal
 | 2026-11-24 | **Renommage produit desktop Rust → StreamCraft** : `productName` / titre fenêtre / brand UI / bundle `app.streamcraft.StreamCraft` ; icône hibou+clap (stipple violet) via `tauri icon`. Crates renommés `streamcraft-*`. Dossiers data/exports → `StreamCraft`. |
 
 | 2026-11-24 | CLI binary renamed **`streamcraft`** (crate package remains `streamcraft-cli`). |
+
+| 2026-11-25 | D021 : Craft app egui + craft-libs + MCP ; Tauri → archive/tauri-desktop ; v0.3.0 ; FFmpeg bundle release |
+| 2026-11-25 | Release **v0.3.0** : artefacts Craft (`StreamCraft.app` zip, CLI macOS/Linux aarch64, `streamcraft-app` Linux). Linux bins rebuilt on Debian bookworm (glibc ≤ 2.34). Icon Dock : AppIcon.icns squircle ; Assets.car Tahoe Liquid Glass reporté. |

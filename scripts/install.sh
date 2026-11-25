@@ -3,7 +3,7 @@
 # FFmpeg est embarqué dans le bundle (plus de dépendance Homebrew obligatoire).
 set -euo pipefail
 
-REPO="ROSITO/StreamCraft"
+REPO="ROSITO/OpenStream"
 DEST="/Applications/StreamCraft.app"
 
 need_cmd() { command -v "$1" >/dev/null 2>&1; }

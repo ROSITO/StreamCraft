@@ -1,3 +1,5 @@
+mod mcp;
+
 use std::path::PathBuf;
 use std::process::Command as StdCommand;
 use std::time::{Duration, Instant};
@@ -107,6 +109,15 @@ enum Commands {
     },
     /// Print inbox / via-app paths
     Inbox,
+    /// MCP stdio server for AI agents (requires automation roots — D021)
+    Mcp {
+        /// Absolute folder an agent may read (repeatable)
+        #[arg(long = "automation-read-root", required = true)]
+        automation_read_root: Vec<PathBuf>,
+        /// Absolute folder an agent may write (exports, cookies copies)
+        #[arg(long = "automation-write-root", required = true)]
+        automation_write_root: PathBuf,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -310,6 +321,14 @@ async fn run(cli: Cli, opts: &SessionOpts) -> Result<ExitCode> {
                 }
                 .emit();
             }
+            Ok(ExitCode::Ok)
+        }
+        Commands::Mcp {
+            automation_read_root,
+            automation_write_root,
+        } => {
+            let config = mcp::McpConfig::from_flags(automation_read_root, Some(automation_write_root))?;
+            mcp::serve_stdio(config).await?;
             Ok(ExitCode::Ok)
         }
         Commands::Download { url, title, out } => {

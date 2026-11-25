@@ -192,6 +192,24 @@ Références : `PRD_OpenStream.md`, `ARCHITECTURE.md`, `MEMORY.md`, `CLAUDE.md`.
 
 ---
 
+## Phase R6 — Craft app (egui + MCP + FFmpeg bundle)
+
+**Objectif :** vraie Craft app agentique (D021) pour la release v0.3.
+
+- [x] UI egui/eframe (`apps/streamcraft`, binaire `streamcraft-app`) — plus de Tauri/React nominal
+- [x] Tauri archivé (`archive/tauri-desktop/`)
+- [x] Pin craft-libs (`craft-ai-core`, `craft-jsonrpc`) — un seul `rev`
+- [x] Catalogue roles craft-ai-core (`streamcraft.*`)
+- [x] `streamcraft mcp` stdio avec `--automation-read-root` / `--automation-write-root` obligatoires
+- [x] Browser wry + hooks D008 (départ documenté Craft SHOULD #11)
+- [x] FFmpeg embarqué release (`scripts/fetch-ffmpeg.sh` + `scripts/package-craft-release.sh`) ; `doctor` → `source=bundled`
+- [x] Docs ARCHITECTURE / CLAUDE / cli MCP
+
+**Done quand :** un agent MCP peut `tools/list` + `doctor`/`download` sous racines ; GUI egui lance ; package `dist/craft` contient Helpers.
+**Statut :** ✅ livré 2026-11-25
+
+---
+
 ## Phase 9 — Gate DRM (release open source publique)
 
 **Objectif :** réintégrer la politique produit avant publication. Bloquant pour le tag / release publique.

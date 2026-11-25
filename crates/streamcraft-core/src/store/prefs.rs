@@ -116,10 +116,16 @@ pub fn default_export_dir() -> PathBuf {
 impl AppPreferences {
     pub fn load() -> Self {
         let path = prefs_path();
-        std::fs::read_to_string(&path)
+        let mut prefs: Self = std::fs::read_to_string(&path)
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_default()
+            .unwrap_or_default();
+        if let Ok(dir) = std::env::var("STREAMCRAFT_EXPORT_DIR") {
+            if !dir.is_empty() {
+                prefs.export_dir = PathBuf::from(dir);
+            }
+        }
+        prefs
     }
 
     pub fn save(&self) -> std::io::Result<()> {
