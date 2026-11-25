@@ -2,20 +2,20 @@
 mod macos_media_hook;
 mod vpn;
 
-use openstream_core::agent::popup_guard::PopupGuard;
-use openstream_core::download::queue::DownloadQueue;
-use openstream_core::download::service::DownloadService;
-use openstream_core::media::dash::DASHParser;
-use openstream_core::media::detector::MediaDetector;
-use openstream_core::media::heuristics::MediaURLHeuristics;
-use openstream_core::media::hls::HLSParser;
-use openstream_core::media::models::{
+use streamcraft_core::agent::popup_guard::PopupGuard;
+use streamcraft_core::download::queue::DownloadQueue;
+use streamcraft_core::download::service::DownloadService;
+use streamcraft_core::media::dash::DASHParser;
+use streamcraft_core::media::detector::MediaDetector;
+use streamcraft_core::media::heuristics::MediaURLHeuristics;
+use streamcraft_core::media::hls::HLSParser;
+use streamcraft_core::media::models::{
     DetectedMedia, DownloadJob, MediaClassification, MediaVariant, NetworkMediaCandidate,
     Resolution,
 };
-use openstream_core::store::history::DownloadHistoryStore;
-use openstream_core::store::prefs::AppPreferences;
-use openstream_ffmpeg::FFmpegPaths;
+use streamcraft_core::store::history::DownloadHistoryStore;
+use streamcraft_core::store::prefs::AppPreferences;
+use streamcraft_ffmpeg::FFmpegPaths;
 use serde::Serialize;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -32,10 +32,10 @@ struct AppState {
     queue: Arc<DownloadQueue>,
     page_title: std::sync::Mutex<Option<String>>,
     page_url: std::sync::Mutex<Option<String>>,
-    /// Payloads from WKScriptMessageHandler (all frames) — clone Swift openstreamMedia.
+    /// Payloads from WKScriptMessageHandler (all frames) — clone Swift streamcraftMedia.
     pending_media: std::sync::Arc<std::sync::Mutex<Vec<ScriptMediaPayload>>>,
     raw_candidates: std::sync::Mutex<Vec<NetworkMediaCandidate>>,
-    cookie_snapshot: std::sync::Mutex<openstream_core::session::SessionCredentialSnapshot>,
+    cookie_snapshot: std::sync::Mutex<streamcraft_core::session::SessionCredentialSnapshot>,
     auto_enqueued_keys: std::sync::Mutex<HashSet<String>>,
     pending_batch_pages: std::sync::Mutex<Vec<String>>,
 }
@@ -120,7 +120,7 @@ async fn remove_job(job_id: String, state: tauri::State<'_, AppState>) -> Result
 }
 
 #[tauri::command]
-fn list_history() -> Vec<openstream_core::store::history::HistoryEntry> {
+fn list_history() -> Vec<streamcraft_core::store::history::HistoryEntry> {
     DownloadHistoryStore::load().entries
 }
 
@@ -165,7 +165,7 @@ fn pick_export_dir(state: tauri::State<'_, AppState>) -> Result<String, String> 
 
 #[tauri::command]
 fn reset_export_dir(state: tauri::State<'_, AppState>) -> Result<String, String> {
-    let dir = openstream_core::default_export_dir();
+    let dir = streamcraft_core::default_export_dir();
     let mut prefs = state.prefs.lock().unwrap();
     prefs.export_dir = dir.clone();
     prefs.save().map_err(|e| e.to_string())?;
@@ -175,34 +175,34 @@ fn reset_export_dir(state: tauri::State<'_, AppState>) -> Result<String, String>
 
 #[tauri::command]
 fn preview_export_path(
-    metadata: openstream_core::ExportMetadata,
+    metadata: streamcraft_core::ExportMetadata,
     state: tauri::State<'_, AppState>,
 ) -> String {
     let prefs = state.prefs.lock().unwrap();
     let preset = metadata
         .naming_preset
         .unwrap_or(prefs.naming_preset);
-    let template = if preset == openstream_core::ExportNamingPreset::Custom {
+    let template = if preset == streamcraft_core::ExportNamingPreset::Custom {
         prefs.resolved_naming_template()
     } else {
         preset.template().to_string()
     };
     let ctx = metadata.into_context("hls", "mp4");
-    openstream_core::ExportNaming::relative_path(&template, &ctx)
+    streamcraft_core::ExportNaming::relative_path(&template, &ctx)
 }
 
 #[tauri::command]
-async fn av_sync_probe(path: String) -> Result<openstream_ffmpeg::MediaStreamTiming, String> {
+async fn av_sync_probe(path: String) -> Result<streamcraft_ffmpeg::MediaStreamTiming, String> {
     let ffmpeg = FFmpegPaths::resolve().map_err(|e| e.to_string())?;
-    openstream_core::assemble::av_sync::probe(&ffmpeg, PathBuf::from(path).as_path())
+    streamcraft_core::assemble::av_sync::probe(&ffmpeg, PathBuf::from(path).as_path())
         .await
         .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-async fn av_sync_realign(path: String) -> Result<openstream_core::assemble::av_sync::AvSyncResult, String> {
+async fn av_sync_realign(path: String) -> Result<streamcraft_core::assemble::av_sync::AvSyncResult, String> {
     let ffmpeg = FFmpegPaths::resolve().map_err(|e| e.to_string())?;
-    openstream_core::assemble::av_sync::realign_like_player(&ffmpeg, PathBuf::from(path).as_path())
+    streamcraft_core::assemble::av_sync::realign_like_player(&ffmpeg, PathBuf::from(path).as_path())
         .await
         .map_err(|e| e.to_string())
 }
@@ -211,9 +211,9 @@ async fn av_sync_realign(path: String) -> Result<openstream_core::assemble::av_s
 async fn av_sync_drift(
     path: String,
     end_audio_lead_seconds: Option<f64>,
-) -> Result<openstream_core::assemble::av_sync::AvSyncResult, String> {
+) -> Result<streamcraft_core::assemble::av_sync::AvSyncResult, String> {
     let ffmpeg = FFmpegPaths::resolve().map_err(|e| e.to_string())?;
-    openstream_core::assemble::av_sync::correct_av_drift(
+    streamcraft_core::assemble::av_sync::correct_av_drift(
         &ffmpeg,
         PathBuf::from(path).as_path(),
         end_audio_lead_seconds,
@@ -226,9 +226,9 @@ async fn av_sync_drift(
 async fn av_sync_shift(
     path: String,
     audio_shift_seconds: f64,
-) -> Result<openstream_core::assemble::av_sync::AvSyncResult, String> {
+) -> Result<streamcraft_core::assemble::av_sync::AvSyncResult, String> {
     let ffmpeg = FFmpegPaths::resolve().map_err(|e| e.to_string())?;
-    openstream_core::assemble::av_sync::apply_manual_audio_shift(
+    streamcraft_core::assemble::av_sync::apply_manual_audio_shift(
         &ffmpeg,
         PathBuf::from(path).as_path(),
         audio_shift_seconds,
@@ -314,14 +314,14 @@ fn browser_rescan(app: tauri::AppHandle) -> Result<(), String> {
             for (var i = 0; i < entries.length; i++) {
               var n = entries[i].name || '';
               if (!n) continue;
-              window.__openstreamMediaQueue = window.__openstreamMediaQueue || [];
-              window.__openstreamMediaQueue.push({
+              window.__streamcraftMediaQueue = window.__streamcraftMediaQueue || [];
+              window.__streamcraftMediaQueue.push({
                 url: n, mime: null, source: 'resourceTiming', page: location.href
               });
             }
             document.querySelectorAll('video,audio,source').forEach(function(el){
               var s = el.currentSrc || el.src;
-              if (s) window.__openstreamMediaQueue.push({
+              if (s) window.__streamcraftMediaQueue.push({
                 url: s, mime: el.type || null, source: 'mediaElement', page: location.href
               });
             });
@@ -334,7 +334,7 @@ fn browser_rescan(app: tauri::AppHandle) -> Result<(), String> {
 #[tauri::command]
 async fn start_download(
     media_id: String,
-    metadata: Option<openstream_core::ExportMetadata>,
+    metadata: Option<streamcraft_core::ExportMetadata>,
     variant_id: Option<String>,
     audio_track_id: Option<String>,
     subtitle_track_id: Option<String>,
@@ -439,21 +439,21 @@ fn list_raw_candidates(state: tauri::State<'_, AppState>) -> Vec<NetworkMediaCan
 }
 
 #[tauri::command]
-fn list_bookmarks() -> Vec<openstream_core::store::bookmarks::Bookmark> {
-    openstream_core::store::bookmarks::BookmarkStore::load().items
+fn list_bookmarks() -> Vec<streamcraft_core::store::bookmarks::Bookmark> {
+    streamcraft_core::store::bookmarks::BookmarkStore::load().items
 }
 
 #[tauri::command]
 fn toggle_bookmark(title: String, url: String) -> Result<bool, String> {
-    let mut store = openstream_core::store::bookmarks::BookmarkStore::load();
+    let mut store = streamcraft_core::store::bookmarks::BookmarkStore::load();
     store.toggle(title, url)
 }
 
 #[tauri::command]
-fn add_bookmark(title: String, url: String, as_hub: bool) -> Result<openstream_core::store::bookmarks::Bookmark, String> {
-    let mut store = openstream_core::store::bookmarks::BookmarkStore::load();
+fn add_bookmark(title: String, url: String, as_hub: bool) -> Result<streamcraft_core::store::bookmarks::Bookmark, String> {
+    let mut store = streamcraft_core::store::bookmarks::BookmarkStore::load();
     let final_url = if as_hub {
-        openstream_core::store::bookmarks::BookmarkStore::hub_origin_url(&url).unwrap_or(url)
+        streamcraft_core::store::bookmarks::BookmarkStore::hub_origin_url(&url).unwrap_or(url)
     } else {
         url
     };
@@ -463,21 +463,21 @@ fn add_bookmark(title: String, url: String, as_hub: bool) -> Result<openstream_c
 #[tauri::command]
 fn remove_bookmark(id: String) -> Result<(), String> {
     let uuid = Uuid::parse_str(&id).map_err(|e| e.to_string())?;
-    let mut store = openstream_core::store::bookmarks::BookmarkStore::load();
+    let mut store = streamcraft_core::store::bookmarks::BookmarkStore::load();
     store.remove(uuid)
 }
 
 #[tauri::command]
 fn rename_bookmark(id: String, title: String) -> Result<(), String> {
     let uuid = Uuid::parse_str(&id).map_err(|e| e.to_string())?;
-    let mut store = openstream_core::store::bookmarks::BookmarkStore::load();
+    let mut store = streamcraft_core::store::bookmarks::BookmarkStore::load();
     store.rename(uuid, title)
 }
 
 #[tauri::command]
 fn open_bookmark(id: String, app: tauri::AppHandle) -> Result<(), String> {
     let uuid = Uuid::parse_str(&id).map_err(|e| e.to_string())?;
-    let mut store = openstream_core::store::bookmarks::BookmarkStore::load();
+    let mut store = streamcraft_core::store::bookmarks::BookmarkStore::load();
     let url = store
         .items
         .iter()
@@ -497,8 +497,8 @@ struct CliPaths {
 #[tauri::command]
 fn cli_paths() -> CliPaths {
     CliPaths {
-        inbox: openstream_core::agent::via_app::inbox_dir().display().to_string(),
-        via_app_addr: openstream_core::agent::via_app::default_addr(),
+        inbox: streamcraft_core::agent::via_app::inbox_dir().display().to_string(),
+        via_app_addr: streamcraft_core::agent::via_app::default_addr(),
     }
 }
 
@@ -512,8 +512,8 @@ struct BatchPreview {
 
 #[tauri::command]
 fn preview_batch(text: String) -> BatchPreview {
-    let urls = openstream_core::agent::batch::parse(&text);
-    let part = openstream_core::agent::batch::partition(&urls);
+    let urls = streamcraft_core::agent::batch::parse(&text);
+    let part = streamcraft_core::agent::batch::partition(&urls);
     BatchPreview {
         media_count: part.media.len(),
         page_count: part.pages.len(),
@@ -524,8 +524,8 @@ fn preview_batch(text: String) -> BatchPreview {
 
 #[tauri::command]
 async fn submit_batch(text: String, app: tauri::AppHandle, state: tauri::State<'_, AppState>) -> Result<String, String> {
-    let urls = openstream_core::agent::batch::parse(&text);
-    let part = openstream_core::agent::batch::partition(&urls);
+    let urls = streamcraft_core::agent::batch::parse(&text);
+    let part = streamcraft_core::agent::batch::partition(&urls);
     let prefs = state.prefs.lock().unwrap().clone();
     let service = DownloadService::with_queue(prefs.clone(), state.queue.clone());
     let snap = state.cookie_snapshot.lock().unwrap().clone();
@@ -611,7 +611,7 @@ fn cookie_refresh(app: tauri::AppHandle, state: tauri::State<'_, AppState>) -> R
     let parsed: CookieJs = serde_json::from_str(&json).unwrap_or(CookieJs { cookie: None, host: None, href: None });
     let host = parsed.host.unwrap_or_default();
     let raw = parsed.cookie.unwrap_or_default();
-    let snap = openstream_core::session::SessionCredentialSnapshot::from_document_cookie(&raw, &host);
+    let snap = streamcraft_core::session::SessionCredentialSnapshot::from_document_cookie(&raw, &host);
     let n = snap.cookies.len();
     *state.cookie_snapshot.lock().unwrap() = snap;
     if let Some(href) = parsed.href {
@@ -723,7 +723,7 @@ async fn ingest_script_payload(
     }
 
     let raw_page_title = state.page_title.lock().unwrap().clone();
-    let title = Some(openstream_core::media::page_title::resolve_title(
+    let title = Some(streamcraft_core::media::page_title::resolve_title(
         &[],
         raw_page_title.as_deref(),
         page_url.as_ref(),
@@ -785,7 +785,7 @@ async fn ingest_script_payload(
         let mut keys = state.auto_enqueued_keys.lock().unwrap();
         if !keys.contains(&akey) {
             // Skip empty HLS (no segments yet) like Swift
-            let empty_hls = media.kind == openstream_core::ManifestKind::Hls
+            let empty_hls = media.kind == streamcraft_core::ManifestKind::Hls
                 && media.segment_count == Some(0);
             if !empty_hls {
                 keys.insert(akey);
@@ -824,7 +824,7 @@ async fn resolve_hls(
     if drm_gate && text.contains("#EXT-X-KEY") {
         let playlist = HLSParser::parse(&text, &candidate.url).map_err(|e| e.to_string())?;
         let mut media = MediaDetector::make_hls(candidate, &playlist, title);
-        media.protection = openstream_core::MediaProtection::Drm {
+        media.protection = streamcraft_core::MediaProtection::Drm {
             reason: "#EXT-X-KEY".into(),
         };
         return Ok(media);
@@ -833,7 +833,7 @@ async fn resolve_hls(
     let playlist = HLSParser::parse(&text, &candidate.url).map_err(|e| e.to_string())?;
     let mut media = MediaDetector::make_hls(candidate, &playlist, title);
     // Swift MediaCatalog: master → fetch preferred media for segments + duration
-    if matches!(playlist.kind, openstream_core::media::hls::HLSPlaylistKind::Master) {
+    if matches!(playlist.kind, streamcraft_core::media::hls::HLSPlaylistKind::Master) {
         if let Some(best) = media.preferred_variant().cloned() {
             let referer = candidate
                 .page_url
@@ -934,7 +934,7 @@ pub fn run() {
             page_url: std::sync::Mutex::new(None),
             pending_media: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
             raw_candidates: std::sync::Mutex::new(Vec::new()),
-            cookie_snapshot: std::sync::Mutex::new(openstream_core::session::SessionCredentialSnapshot::empty()),
+            cookie_snapshot: std::sync::Mutex::new(streamcraft_core::session::SessionCredentialSnapshot::empty()),
             auto_enqueued_keys: std::sync::Mutex::new(HashSet::new()),
             pending_batch_pages: std::sync::Mutex::new(Vec::new()),
         })
@@ -1016,8 +1016,8 @@ pub fn run() {
                 let handle2 = handle.clone();
                 let _ = browser_wv.with_webview(move |platform| {
                     match macos_media_hook::attach(platform.inner(), pending) {
-                        Some(_) => tracing::info!("openstreamMedia WKScriptMessageHandler attached"),
-                        None => tracing::error!("openstreamMedia attach failed"),
+                        Some(_) => tracing::info!("streamcraftMedia WKScriptMessageHandler attached"),
+                        None => tracing::error!("streamcraftMedia attach failed"),
                     }
                     // Navigate only after handler is live (all-frames posts).
                     let _ = browser_navigate(

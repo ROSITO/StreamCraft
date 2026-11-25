@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Installe OpenStream.app dans /Applications et lève la quarantaine Gatekeeper.
+# Installe StreamCraft.app dans /Applications et lève la quarantaine Gatekeeper.
 # FFmpeg est embarqué dans le bundle (plus de dépendance Homebrew obligatoire).
 set -euo pipefail
 
-REPO="ROSITO/OpenStream"
-DEST="/Applications/OpenStream.app"
+REPO="ROSITO/StreamCraft"
+DEST="/Applications/StreamCraft.app"
 
 need_cmd() { command -v "$1" >/dev/null 2>&1; }
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
-  echo "OpenStream est une app macOS." >&2
+  echo "StreamCraft est une app macOS." >&2
   exit 1
 fi
 
@@ -35,13 +35,13 @@ else:
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
-ZIP="$TMP/OpenStream.zip"
+ZIP="$TMP/StreamCraft.zip"
 curl -fL --progress-bar -o "$ZIP" "$ZIP_URL"
 ditto -x -k "$ZIP" "$TMP"
 
-APP="$(find "$TMP" -name "OpenStream.app" -type d -maxdepth 3 | head -n 1)"
+APP="$(find "$TMP" -name "StreamCraft.app" -type d -maxdepth 3 | head -n 1)"
 if [[ -z "$APP" ]]; then
-  echo "OpenStream.app introuvable dans l’archive." >&2
+  echo "StreamCraft.app introuvable dans l’archive." >&2
   exit 1
 fi
 
@@ -57,5 +57,5 @@ else
   echo "⚠ FFmpeg embarqué absent dans cette release — assemblage impossible jusqu’à mise à jour." >&2
 fi
 
-echo "OpenStream est dans Applications. Vous pouvez lancer :"
-echo "  open -a OpenStream"
+echo "StreamCraft est dans Applications. Vous pouvez lancer :"
+echo "  open -a StreamCraft"

@@ -9,7 +9,7 @@ Instructions permanentes pour tout agent (Cursor, Claude Code, Codex) travaillan
 **StreamCraft** (anciennement OpenStream) est une application **desktop cross-platform** (macOS, Windows, Linux) open source qui télécharge des flux vidéo (HLS, MPEG-DASH, MP4 progressif).
 
 - Stack : **Rust 2024**, Tauri 2, React/Vite, Tokio, reqwest, rusqlite, FFmpeg sidecar
-- CLI headless : binaire **`streamcraft`** (crate Cargo `openstream-cli`)
+- CLI headless : binaire **`streamcraft`** (crate Cargo `streamcraft-cli`)
 - Legacy Swift : `archive/swift/` (gelé, tag `pre-rust`)
 - Licence : **MIT** (`LICENSE`)
 
@@ -44,9 +44,9 @@ Documents de référence (lire dans cet ordre) :
 
 - Rust edition 2024, Tokio pour l'async ; erreurs typées (`thiserror` / `anyhow` aux frontières bin).
 - Logs via `tracing` (pas de `println!` en prod hors contrat CLI JSON Lines).
-- Dépendances workspace dans le `Cargo.toml` racine ; crates : `openstream-core`, `openstream-cli` → **`streamcraft`**, `openstream-ffmpeg`, `apps/desktop`.
+- Dépendances workspace dans le `Cargo.toml` racine ; crates : `streamcraft-core`, `streamcraft-cli` → **`streamcraft`**, `streamcraft-ffmpeg`, `apps/desktop`.
 - Chaque crate livrée avec tests unitaires ciblés avant la phase ROADMAP suivante.
-- FFmpeg **uniquement** via process/sidecar (`openstream-ffmpeg`) — pas de link libav*.
+- FFmpeg **uniquement** via process/sidecar (`streamcraft-ffmpeg`) — pas de link libav*.
 
 ### Git / fichiers
 

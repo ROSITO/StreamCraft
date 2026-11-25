@@ -10,4 +10,4 @@ Fetch:
 
 Installs into `resources/ffmpeg/{os-arch}/` where `{os-arch}` matches Rust `std::env::consts` (`macos-aarch64`, `linux-x86_64`, `windows-x86_64`, …).
 
-Resolution order (`openstream-ffmpeg`): env `OPENSTREAM_FFMPEG`/`OPENSTREAM_FFPROBE` → bundled helpers → PATH.
+Resolution order (`streamcraft-ffmpeg`): env `STREAMCRAFT_FFMPEG`/`STREAMCRAFT_FFPROBE` → bundled helpers → PATH.

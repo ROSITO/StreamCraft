@@ -55,7 +55,7 @@ impl SystemVpnStatus {
     }
 }
 
-pub fn refresh(filter: openstream_core::VpnIndicatorFilter) -> SystemVpnStatus {
+pub fn refresh(filter: streamcraft_core::VpnIndicatorFilter) -> SystemVpnStatus {
     let tunnels = detect_tunnels();
     build_status(tunnels, filter)
 }
@@ -186,9 +186,9 @@ fn looks_like_vpn(name: &str) -> bool {
 
 pub fn build_status(
     tunnels: Vec<DetectedTunnel>,
-    filter: openstream_core::VpnIndicatorFilter,
+    filter: streamcraft_core::VpnIndicatorFilter,
 ) -> SystemVpnStatus {
-    use openstream_core::VpnIndicatorFilter;
+    use streamcraft_core::VpnIndicatorFilter;
     let connected: Vec<_> = tunnels.iter().filter(|t| t.is_connected).cloned().collect();
     let tailscale_connected = connected.iter().any(|t| t.provider == TunnelProvider::Tailscale);
     let nordvpn_connected = connected.iter().any(|t| t.provider == TunnelProvider::Nordvpn);
@@ -262,7 +262,7 @@ pub fn build_status(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use openstream_core::VpnIndicatorFilter;
+    use streamcraft_core::VpnIndicatorFilter;
 
     #[test]
     fn parse_connected_nord() {

@@ -16,7 +16,7 @@ use crate::media::export_naming::{ExportMetadata, ExportNaming};
 use crate::media::models::{DetectedMedia, DownloadJob, DownloadState, ManifestKind, MediaProtection, MediaTrack, MediaVariant};
 use crate::store::history::{DownloadHistoryStore, HistoryEntry};
 use crate::store::prefs::AppPreferences;
-use openstream_ffmpeg::FFmpegPaths;
+use streamcraft_ffmpeg::FFmpegPaths;
 
 pub struct DownloadService {
     pub queue: Arc<DownloadQueue>,

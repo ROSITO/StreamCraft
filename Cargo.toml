@@ -1,23 +1,23 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/openstream-core",
-    "crates/openstream-cli",
-    "crates/openstream-ffmpeg",
+    "crates/streamcraft-core",
+    "crates/streamcraft-cli",
+    "crates/streamcraft-ffmpeg",
     "apps/desktop/src-tauri",
 ]
 default-members = [
-    "crates/openstream-core",
-    "crates/openstream-cli",
-    "crates/openstream-ffmpeg",
+    "crates/streamcraft-core",
+    "crates/streamcraft-cli",
+    "crates/streamcraft-ffmpeg",
 ]
 
 [workspace.package]
 version = "0.2.0"
 edition = "2024"
 license = "MIT"
-authors = ["OpenStream contributors"]
-repository = "https://github.com/openstream-app/openstream"
+authors = ["StreamCraft contributors"]
+repository = "https://github.com/ROSITO/StreamCraft"
 
 [workspace.dependencies]
 anyhow = "1"
@@ -39,8 +39,8 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 url = { version = "2", features = ["serde"] }
 uuid = { version = "1", features = ["v4", "serde"] }
-openstream-core = { path = "crates/openstream-core" }
-openstream-ffmpeg = { path = "crates/openstream-ffmpeg" }
+streamcraft-core = { path = "crates/streamcraft-core" }
+streamcraft-ffmpeg = { path = "crates/streamcraft-ffmpeg" }
 
 [profile.release]
 codegen-units = 1

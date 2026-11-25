@@ -21,10 +21,10 @@ Complète le PRD. En cas de doute sur le *quoi*, voir le PRD ; sur le *comment d
 │  commands · browser bridge (JS inject D008) · cookies   │
 └─┬───────────────────────────────────────────────────────┘
   ▼
-openstream-core ──► media / download / assemble / store / agent
+streamcraft-core ──► media / download / assemble / store / agent
   │
-  ├── openstream-cli → binary `streamcraft` (clap, JSON Lines)
-  └── openstream-ffmpeg (sidecar resolve + spawn)
+  ├── streamcraft-cli → binary `streamcraft` (clap, JSON Lines)
+  └── streamcraft-ffmpeg (sidecar resolve + spawn)
 ```
 
 Flux : **navigation → observation → détection → parse → download → FFmpeg → export → history**.
@@ -79,7 +79,7 @@ Flux de données principal : **navigation → observation réseau → détection
 Chemin agent (sans UI) :
 
 ```
-`streamcraft` (crate `openstream-cli`) → openstream-core (fetch/season/flix/download)
+`streamcraft` (crate `streamcraft-cli`) → streamcraft-core (fetch/season/flix/download)
               → parsers / DownloadQueue / FFmpeg Helpers
               → JSON Lines (stdout) + exit code
               → flix : RSS hubs favoris → digest JSON (pas de download auto)
@@ -173,7 +173,7 @@ Chemin agent (sans UI) :
 ### Productivity (Phase 8)
 - **Batch :** sheet multi-URLs — médias enfilés, pages ouvertes en séquence.
 - **Automation :** toggles réglages auto-enqueue par `ManifestKind`.
-- **CLI headless (D018) :** binaire `streamcraft` (crate `openstream-cli`) ; legacy Swift `archive/swift/OpenStreamCLI`
+- **CLI headless (D018) :** binaire `streamcraft` (crate `streamcraft-cli`) ; legacy Swift `archive/swift/OpenStreamCLI`
   - `download` / `fetch` / `season` / `flix` / `status` / `wait` / `cancel`
   - JSON Lines stdout (`AgentEvent`) + exit codes — contrat : `docs/cli.md`
   - `flix` (D019) : RSS des hubs favoris → `flix_seen.json` / digest numéroté → `pick` → `season`/`fetch`
@@ -237,7 +237,7 @@ enum DownloadState: Sendable {
 }
 ```
 
-*(Signatures historiques Swift — voir `archive/swift/`. Stack actuelle = crates `openstream-*`.)*
+*(Signatures historiques Swift — voir `archive/swift/`. Stack actuelle = crates `streamcraft-*`.)*
 
 ---
 

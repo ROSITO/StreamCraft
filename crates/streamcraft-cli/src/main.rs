@@ -5,23 +5,23 @@ use std::time::{Duration, Instant};
 use anyhow::{bail, Context, Result};
 use chrono::Utc;
 use clap::{Parser, Subcommand};
-use openstream_core::agent::catalog::{extract_news_id, fetch_series_catalog, resolve_embed_streams};
-use openstream_core::agent::events::{AgentEvent, ExitCode};
-use openstream_core::agent::flix::{
+use streamcraft_core::agent::catalog::{extract_news_id, fetch_series_catalog, resolve_embed_streams};
+use streamcraft_core::agent::events::{AgentEvent, ExitCode};
+use streamcraft_core::agent::flix::{
     digest_item_from_flix, fetch_rss_items, flix_data_dir, rss_url_for_hub, seen_path, FlixItem,
     FlixLastDigest, FlixSeenStore,
 };
-use openstream_core::agent::scrape::PageScraper;
-use openstream_core::agent::season::enumerate_from_html;
-use openstream_core::agent::via_app::{request as via_app_request, ViaAppRequest, ViaAppResponse};
-use openstream_core::download::service::DownloadService;
-use openstream_core::media::detector::MediaDetector;
-use openstream_core::media::hls::HLSParser;
-use openstream_core::media::models::{MediaClassification, MediaProtection, NetworkMediaCandidate};
-use openstream_core::store::bookmarks::BookmarkStore;
-use openstream_core::store::cli_jobs::{CliJobRecord, CliJobStore};
-use openstream_core::store::prefs::AppPreferences;
-use openstream_ffmpeg::FFmpegPaths;
+use streamcraft_core::agent::scrape::PageScraper;
+use streamcraft_core::agent::season::enumerate_from_html;
+use streamcraft_core::agent::via_app::{request as via_app_request, ViaAppRequest, ViaAppResponse};
+use streamcraft_core::download::service::DownloadService;
+use streamcraft_core::media::detector::MediaDetector;
+use streamcraft_core::media::hls::HLSParser;
+use streamcraft_core::media::models::{MediaClassification, MediaProtection, NetworkMediaCandidate};
+use streamcraft_core::store::bookmarks::BookmarkStore;
+use streamcraft_core::store::cli_jobs::{CliJobRecord, CliJobStore};
+use streamcraft_core::store::prefs::AppPreferences;
+use streamcraft_ffmpeg::FFmpegPaths;
 use url::Url;
 use uuid::Uuid;
 
@@ -293,8 +293,8 @@ async fn run(cli: Cli, opts: &SessionOpts) -> Result<ExitCode> {
             }
         }
         Commands::Inbox => {
-            let inbox = openstream_core::agent::via_app::inbox_dir();
-            let addr = openstream_core::agent::via_app::default_addr();
+            let inbox = streamcraft_core::agent::via_app::inbox_dir();
+            let addr = streamcraft_core::agent::via_app::default_addr();
             let payload = serde_json::json!({
                 "inbox": inbox.display().to_string(),
                 "via_app_addr": addr,
@@ -440,7 +440,7 @@ async fn run(cli: Cli, opts: &SessionOpts) -> Result<ExitCode> {
 }
 
 fn write_inbox_open(url: &str) -> Result<()> {
-    let dir = openstream_core::agent::via_app::inbox_dir();
+    let dir = streamcraft_core::agent::via_app::inbox_dir();
     std::fs::create_dir_all(&dir)?;
     let cmd = serde_json::json!({
         "id": Uuid::new_v4().to_string(),
@@ -1002,12 +1002,12 @@ async fn download_url(
                 .emit();
                 return Ok(ExitCode::Drm);
             }
-            let manifest = openstream_core::DASHParser::parse(&text, &media_url)?;
+            let manifest = streamcraft_core::DASHParser::parse(&text, &media_url)?;
             let variants = manifest
                 .video_representations
                 .iter()
                 .map(|r| {
-                    let mut v = openstream_core::MediaVariant::new(
+                    let mut v = streamcraft_core::MediaVariant::new(
                         r.segments
                             .first()
                             .map(|s| s.url.clone())
@@ -1015,7 +1015,7 @@ async fn download_url(
                     );
                     v.bandwidth = r.bandwidth;
                     if let (Some(w), Some(h)) = (r.width, r.height) {
-                        v.resolution = Some(openstream_core::Resolution { width: w, height: h });
+                        v.resolution = Some(streamcraft_core::Resolution { width: w, height: h });
                     }
                     v.codecs = r.codecs.clone();
                     v.dash_representation_id = Some(r.id.clone());

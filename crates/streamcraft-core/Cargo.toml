@@ -1,9 +1,9 @@
 [package]
-name = "openstream-core"
+name = "streamcraft-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "OpenStream domain core: media detection, parsers, download queue, stores"
+description = "StreamCraft domain core: media detection, parsers, download queue, stores"
 publish = false
 
 [dependencies]
@@ -12,7 +12,7 @@ bytes.workspace = true
 chrono.workspace = true
 dirs.workspace = true
 futures.workspace = true
-openstream-ffmpeg.workspace = true
+streamcraft-ffmpeg.workspace = true
 quick-xml.workspace = true
 regex.workspace = true
 reqwest.workspace = true

@@ -37,7 +37,7 @@ jobs:
         shell: bash
         run: ./scripts/fetch-ffmpeg.sh || true
       - name: Build CLI
-        run: cargo build -p openstream-cli --release
+        run: cargo build -p streamcraft-cli --release
       - name: npm ci
         working-directory: apps/desktop
         run: npm ci

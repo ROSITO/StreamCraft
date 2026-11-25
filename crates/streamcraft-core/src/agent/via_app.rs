@@ -34,7 +34,7 @@ pub enum ViaAppResponse {
 }
 
 pub fn default_addr() -> String {
-    std::env::var("OPENSTREAM_VIA_APP")
+    std::env::var("STREAMCRAFT_VIA_APP").or_else(|_| std::env::var("OPENSTREAM_VIA_APP"))
         .unwrap_or_else(|_| "127.0.0.1:8787".into())
 }
 
