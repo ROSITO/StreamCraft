@@ -1,6 +1,6 @@
 # FFmpeg sidecars
 
-OpenStream invokes `ffmpeg` / `ffprobe` as external processes (LGPL/GPL binaries, not linked).
+StreamCraft invokes `ffmpeg` / `ffprobe` as external processes (LGPL/GPL binaries, not linked).
 
 Fetch:
 

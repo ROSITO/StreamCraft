@@ -6,7 +6,7 @@
 
 ## Test plan
 
-- [ ] Built app and/or `OpenStreamCLI` locally
+- [ ] Built desktop app and/or `streamcraft` CLI locally
 - [ ] Added/updated tests when Core / flix / season / parsers changed
 - [ ] Public docs use `example` placeholders (no real stream-site hosts)
 

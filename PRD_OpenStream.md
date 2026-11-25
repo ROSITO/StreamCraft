@@ -1,5 +1,7 @@
+> **Note :** le produit s’appelle désormais **StreamCraft** (fichier PRD conservé sous l’ancien nom).
+
 # PRD.md
-# OpenStream – Product Requirements Document
+# StreamCraft – Product Requirements Document
 
 > Version: 1.0
 > Statut: Draft
@@ -9,7 +11,7 @@
 
 # 1. Vision
 
-OpenStream est une application macOS open source permettant de télécharger des flux vidéo **non protégés par DRM** accessibles à l'utilisateur.
+StreamCraft est une application desktop (macOS / Windows / Linux) open source permettant de télécharger des flux vidéo **non protégés par DRM** accessibles à l'utilisateur.
 
 Le logiciel intègre un navigateur WebKit, détecte automatiquement les flux HLS, MPEG-DASH et MP4 progressifs, puis les télécharge avant de les assembler via FFmpeg lorsque cela est nécessaire.
 

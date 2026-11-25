@@ -1,4 +1,4 @@
-# ROADMAP.md — OpenStream
+# ROADMAP.md — StreamCraft
 
 Plan d'exécution ordonné.  
 Une phase = un incrément livrable avec critères de done.  
@@ -79,7 +79,7 @@ Références : `PRD_OpenStream.md`, `ARCHITECTURE.md`, `MEMORY.md`, `CLAUDE.md`.
 - [x] Tests : queue, annulation, reprise simulée
 
 **Done quand :** un job HLS VOD et un MP4 se téléchargent jusqu'au bout avec progress UI ; cancel fonctionne ; reprise après relance app pour un job interrompu.  
-**Statut :** ✅ livré 2026-07-29 — fichiers dans `~/Downloads/OpenStream/` ; assemblage MP4 = Phase 4
+**Statut :** ✅ livré 2026-07-29 — fichiers dans `~/Downloads/StreamCraft/` ; assemblage MP4 = Phase 4
 
 ---
 
@@ -89,7 +89,7 @@ Références : `PRD_OpenStream.md`, `ARCHITECTURE.md`, `MEMORY.md`, `CLAUDE.md`.
 
 - [x] Intégration FFmpeg isolée (`FFmpegWrapper`) — méthode choisie documentée dans `MEMORY.md`
 - [x] Remux / concat segments → MP4 (`-c copy` quand possible)
-- [x] `Exporter` : MP4 dans `~/Downloads/OpenStream/` ; segments `.parts/` puis cleanup
+- [x] `Exporter` : MP4 dans `~/Downloads/StreamCraft/` ; segments `.parts/` puis cleanup
 - [x] Gestion d'erreurs codecs / remux (message UI clair)
 - [x] Préférences : dossier destination (`AppPreferences`), concurrence
 - [x] Tests integration sur fixtures locales
@@ -171,7 +171,7 @@ Références : `PRD_OpenStream.md`, `ARCHITECTURE.md`, `MEMORY.md`, `CLAUDE.md`.
 - [x] `fetch` WKWebView offscreen + titres (`PageTitleResolver`)
 - [x] `season` : catalogue `eps_*.txt` / pattern watch-path / DOM ; `--auto-download` séquentiel
 - [x] Préférence variante HLS vidéo vs audio-only ; export série Jellyfin
-- [x] Playbook agent : `OpenStreamCLI/README.md`
+- [x] Playbook agent : `docs/cli.md`
 - [x] FFmpeg embarqué (D017) partagé app + CLI
 
 **Done quand :** un agent peut lister une saison et télécharger un épisode en JSON Lines sans ouvrir l’app.  

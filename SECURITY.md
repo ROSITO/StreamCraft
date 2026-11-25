@@ -2,11 +2,11 @@
 
 ## Supported versions
 
-Security fixes target the latest release on [GitHub Releases](https://github.com/ROSITO/OpenStream/releases).
+Security fixes target the latest release on [GitHub Releases](https://github.com/ROSITO/StreamCraft/releases).
 
 ## Scope
 
-OpenStream downloads **clear** media streams the user can already access. It does **not**:
+StreamCraft downloads **clear** media streams the user can already access. It does **not**:
 
 - bypass DRM (Widevine, FairPlay, PlayReady, CENC, `EXT-X-KEY`, …)
 - decrypt protected content
@@ -20,8 +20,8 @@ Email the maintainer via the address on the [GitHub profile](https://github.com/
 
 Include:
 
-- OpenStream version / commit
-- macOS version
+- StreamCraft version / commit
+- OS / platform version
 - Steps to reproduce
 - Impact (data leak, local code exec, unexpected network, …)
 
