@@ -967,7 +967,7 @@ function SettingsSheet({
           <p className="muted tiny">Inbox fichiers + pont TCP via-app</p>
           <p className="mono path">{cliPaths?.inbox || "…"}</p>
           <p className="mono path">{cliPaths?.via_app_addr || "127.0.0.1:8787"}</p>
-          <p className="muted tiny">Exemple : openstream-cli status</p>
+          <p className="muted tiny">Exemple : streamcraft status</p>
         </section>
 
         <section className="settings-sec">
@@ -1035,7 +1035,6 @@ function AvSyncSheet({
     setMsg("…");
     try {
       const r = await fn();
-      const text = typeof r === "string" ? r : (r as { user_message?: string }).user_message || JSON.stringify(r);
       // AvSyncResult is tagged enum from Rust — format message client-side
       const pretty = formatSyncResult(r);
       setMsg(pretty);
@@ -1254,7 +1253,9 @@ function formatSyncResult(r: unknown): string {
     const v = o.already_aligned as { delta_seconds: number };
     return `Déjà aligné (Δ ${Math.round(v.delta_seconds * 1000)} ms)`;
   }
-  if (o === "missing_audio_or_video" || "MissingAudioOrVideo" in o) return "Fichier sans piste audio et vidéo";
+  if ("missing_audio_or_video" in o || "MissingAudioOrVideo" in o) {
+    return "Fichier sans piste audio et vidéo";
+  }
   return JSON.stringify(r);
 }
 

@@ -83,3 +83,4 @@ archive/swift/OpenStream/Resources/Helpers/ffprobe
 # Fork/sanitizer pipeline reports (local only)
 FORK_REPORT.md
 SANITIZATION_REPORT.md
+/dist/
