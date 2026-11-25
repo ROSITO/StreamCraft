@@ -243,7 +243,7 @@ Ne pas publier en open source tant que la Phase 9 n'est pas verte.
 
 ### Phase R1 — Domaine portable
 - [x] Modèles + HLS/DASH parsers + heuristics + export naming + PopupGuard
-- [x] Fixtures `fixtures/` + `cargo test -p openstream-core`
+- [x] Fixtures `fixtures/` + `cargo test -p streamcraft-core`
 
 ### Phase R2 — Download + FFmpeg + CLI MVP
 - [x] Queue Tokio + reqwest stream disque

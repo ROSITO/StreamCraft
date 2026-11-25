@@ -14,7 +14,7 @@ Mémoire projet : décisions figées, contraintes, et pièges.
 | Code applicatif | Monorepo Rust + Tauri 2 ; Swift gelé dans `archive/swift/` |
 | Licence | **MIT** (`LICENSE`, 2026) |
 | Bundle ID | `app.streamcraft.StreamCraft` (desktop Tauri ; legacy Swift `app.openstream.OpenStream`) |
-| Nom produit desktop | **StreamCraft** (crates `openstream-*` inchangés) |
+| Nom produit desktop | **StreamCraft** (crates `streamcraft-*`) |
 | Stack | Rust 2024 + Tauri 2 + React/Vite (macOS / Windows / Linux) |
 | Tag legacy | `pre-rust` (MVP Swift macOS) |
 
@@ -57,7 +57,7 @@ Mémoire projet : décisions figées, contraintes, et pièges.
 ### D008 — Technique Network Observer (Phase 1)
 **Décision :** observation hybride —
 1. `WKNavigationDelegate` (`decidePolicyFor` action/response) pour navigations document / réponses média ;
-2. Script JS injecté (`atDocumentStart`) : Resource Timing + hooks `fetch` / `XMLHttpRequest` / éléments `video|audio|source`, relayé via `WKScriptMessageHandler` (`openstreamMedia`).
+2. Script JS injecté (`atDocumentStart`) : Resource Timing + hooks `fetch` / `XMLHttpRequest` / éléments `video|audio|source`, relayé via `WKScriptMessageHandler` (`streamcraftMedia`).
 **Pourquoi :** WKWebView n’expose pas un proxy HTTP complet ; cette approche suffit pour détecter `.m3u8` / `.mp4` sur beaucoup de players web sans API privée.
 **Limites :** workers isolés, MediaSource buffered opaque, et certains players obfuscated peuvent échapper — à réévaluer en Phase 2/5 si besoin.
 **Date :** 2026-07-29
@@ -108,7 +108,7 @@ La relance manuelle reste disponible ; elle ne doit plus être le chemin nominal
 ### D017 — FFmpeg embarqué (plus de dépendance Homebrew)
 **Décision :** StreamCraft shippe ses propres `ffmpeg` / `ffprobe` **statiques** (universal arm64+x86_64) dans `Contents/Resources/Helpers/`.  
 - Fetch : `scripts/fetch-bundled-ffmpeg.sh` (source https://ffmpeg.martin-riedl.de/ release)  
-- Résolution : **bundle d’abord**, puis `OPENSTREAM_FFMPEG`, puis Homebrew/PATH en secours uniquement  
+- Résolution : **bundle d’abord**, puis `STREAMCRAFT_FFMPEG`, puis Homebrew/PATH en secours uniquement  
 - Les binaires ne sont pas dans git (poids) ; le script + `Vendor/ffmpeg/README.md` documentent la procédure  
 - Toujours invoqué via `Process` (pas de linking libav*) — compatible D005 / licence app encore ouverte  
 **Pourquoi :** un `brew upgrade` (ex. x265 soname) cassait tous les assemblages ; inacceptable.  
@@ -116,7 +116,7 @@ La relance manuelle reste disponible ; elle ne doit plus être le chemin nominal
 **Amende :** D010 / case « Distribution FFmpeg : Homebrew only » — Homebrew n’est plus le chemin nominal.
 
 ### D018 — CLI headless / agent
-**Décision :** `openstream-cli` exécute download/assemble **sans** l’app GUI.  
+**Décision :** `streamcraft-cli` exécute download/assemble **sans** l’app GUI.  
 - Sources pipeline partagées compilées dans le target CLI + façade `OpenStreamCore/` (`HeadlessDownloadService`, `HeadlessBrowserSession`, JSON agent)  
 - Prefs runtime : `SettingsCore.swift` (`AppPreferences` snapshot) ; UI AppKit reste dans `AppSettings`  
 - DB dédiée `Application Support/StreamCraft/cli-store/` (flag `--shared-db` pour partager l’app)  
@@ -196,7 +196,7 @@ La relance manuelle reste disponible ; elle ne doit plus être le chemin nominal
 | 2026-07-29 | Indicateur VPN système (utun/ipsec/ppp) dans toolbar + réglages |
 | 2026-07-29 | Phase 6 : DASHParser, download/assemble DASH, audio/subs optionnels, sheet options, fixtures |
 | 2026-07-29 | Favoris sites (BookmarkStore JSON) + Phase 7 PluginManager / ExampleMediaHintPlugin / PLUGIN_AUTHOR.md |
-| 2026-07-29 | Phase 8 : historique, batch URLs, auto-enqueue, openstream-cli (inbox locale) |
+| 2026-07-29 | Phase 8 : historique, batch URLs, auto-enqueue, streamcraft-cli (inbox locale) |
 | 2026-07-29 | Nomenclature export configurable (Jellyfin film/série + custom) + titre/année au download |
 | 2026-07-29 | Download : fenêtre glissante segments + réglage concurrence (défaut 8, max 16) |
 | 2026-08-17 | Dépôt public + release v0.1.0 ; install.sh + setup FFmpeg in-app via Homebrew |
@@ -217,7 +217,7 @@ La relance manuelle reste disponible ; elle ne doit plus être le chemin nominal
 | 2026-10-01 | D015 : auto-retry job 429/503 (cooldown + bootstrap) — relance manuelle plus le chemin nominal |
 | 2026-10-05 | D016 : MP4 progressif via URLSession.download (plus de data(for:) en RAM) |
 | 2026-10-17 | D017 : FFmpeg statique embarqué (Helpers) — plus de casse via brew/x265 |
-| 2026-10-17 | D018 : openstream-cli headless (download/fetch/JSON agent) |
+| 2026-10-17 | D018 : streamcraft-cli headless (download/fetch/JSON agent) |
 | 2026-10-17 | D018+ : `season` (eps_*.txt / watch-path / DOM) ; pick HLS vidéo ; doc agent |
 | 2026-10-17 | Doc publique : placeholders (pas de noms/hôtes de sites stream) |
 | 2026-10-17 | Licence produit → MIT (`LICENSE`) |
@@ -229,6 +229,6 @@ La relance manuelle reste disponible ; elle ne doit plus être le chemin nominal
 
 | 2026-11-24 | Parité Swift→Tauri : inventaire 48 features (PARITY_SWIFT agent store) ; P0 = MediaDownloadSheet + VPN scutil + Settings dossiers/VPN/proxy/naming |
 
-| 2026-11-24 | **Renommage produit desktop Rust → StreamCraft** : `productName` / titre fenêtre / brand UI / bundle `app.streamcraft.StreamCraft` ; icône hibou+clap (stipple violet) via `tauri icon`. Crates restent `openstream-*` (contrat CLI/code). Dossiers data/exports → `StreamCraft`. |
+| 2026-11-24 | **Renommage produit desktop Rust → StreamCraft** : `productName` / titre fenêtre / brand UI / bundle `app.streamcraft.StreamCraft` ; icône hibou+clap (stipple violet) via `tauri icon`. Crates renommés `streamcraft-*`. Dossiers data/exports → `StreamCraft`. |
 
-| 2026-11-24 | CLI binary renamed **`streamcraft`** (crate package remains `openstream-cli`). |
+| 2026-11-24 | CLI binary renamed **`streamcraft`** (crate package remains `streamcraft-cli`). |

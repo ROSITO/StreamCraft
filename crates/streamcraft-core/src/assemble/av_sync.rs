@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use openstream_ffmpeg::{FFmpegPaths, MediaStreamTiming};
+use streamcraft_ffmpeg::{FFmpegPaths, MediaStreamTiming};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::info;
@@ -13,7 +13,7 @@ pub const AV_DURATION_MISMATCH_LIMIT_SECONDS: f64 = 1.0;
 #[derive(Debug, Error)]
 pub enum AvSyncError {
     #[error(transparent)]
-    Ffmpeg(#[from] openstream_ffmpeg::FFmpegError),
+    Ffmpeg(#[from] streamcraft_ffmpeg::FFmpegError),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error("{0}")]

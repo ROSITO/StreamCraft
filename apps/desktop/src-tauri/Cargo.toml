@@ -1,5 +1,5 @@
 [package]
-name = "openstream-desktop"
+name = "streamcraft-desktop"
 version.workspace = true
 description = "StreamCraft desktop (Tauri 2)"
 authors.workspace = true
@@ -8,7 +8,7 @@ license.workspace = true
 publish = false
 
 [lib]
-name = "openstream_desktop_lib"
+name = "streamcraft_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -19,8 +19,8 @@ tauri = { version = "2", features = ["unstable"] }
 tauri-plugin-opener = "2"
 serde = { workspace = true }
 serde_json = { workspace = true }
-openstream-core = { workspace = true }
-openstream-ffmpeg = { workspace = true }
+streamcraft-core = { workspace = true }
+streamcraft-ffmpeg = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 url = { workspace = true }

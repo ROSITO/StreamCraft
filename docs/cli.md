@@ -1,14 +1,14 @@
 # streamcraft — CLI StreamCraft
 
 CLI headless : détecter, télécharger et assembler des flux **clairs** (HLS / DASH / MP4) sans GUI.  
-Binaire : **`streamcraft`** (crate Cargo `openstream-cli`).  
+Binaire : **`streamcraft`** (crate Cargo `streamcraft-cli`).  
 Sortie machine : **JSON Lines** sur stdout + **exit code**.
 
 > Pas de contournement DRM, captcha, login, ni déchiffrement. Cookies / referer = rejouer une session déjà accordée à l’utilisateur.
 
 ```bash
-cargo build -p openstream-cli --release   # → target/release/streamcraft
-cargo run -p openstream-cli -- --help
+cargo build -p streamcraft-cli --release   # → target/release/streamcraft
+cargo run -p streamcraft-cli -- --help
 ```
 
 ---
@@ -18,7 +18,7 @@ cargo run -p openstream-cli -- --help
 ### Build local
 
 ```bash
-cargo build -p openstream-cli --release
+cargo build -p streamcraft-cli --release
 ./scripts/fetch-ffmpeg.sh    # sidecars FFmpeg si besoin
 ./target/release/streamcraft doctor
 ```

@@ -1,7 +1,7 @@
 //! FFmpeg / ffprobe sidecar resolution and process spawn.
 //!
 //! Resolution order (D017):
-//! 1. `OPENSTREAM_FFMPEG` / `OPENSTREAM_FFPROBE` env vars
+//! 1. `STREAMCRAFT_FFMPEG` / `STREAMCRAFT_FFPROBE` env vars (legacy `OPENSTREAM_*` accepted)
 //! 2. Bundled helpers next to the executable (`Helpers/` or `resources/ffmpeg/{os-arch}/`)
 //! 3. `PATH`
 
@@ -32,10 +32,12 @@ pub struct FFmpegPaths {
 
 impl FFmpegPaths {
     pub fn resolve() -> Result<Self, FFmpegError> {
-        if let (Ok(ffmpeg), Ok(ffprobe)) = (
-            std::env::var("OPENSTREAM_FFMPEG"),
-            std::env::var("OPENSTREAM_FFPROBE"),
-        ) {
+        // Prefer STREAMCRAFT_*; accept legacy OPENSTREAM_* for one release.
+        let env_ffmpeg = std::env::var("STREAMCRAFT_FFMPEG")
+            .or_else(|_| std::env::var("OPENSTREAM_FFMPEG"));
+        let env_ffprobe = std::env::var("STREAMCRAFT_FFPROBE")
+            .or_else(|_| std::env::var("OPENSTREAM_FFPROBE"));
+        if let (Ok(ffmpeg), Ok(ffprobe)) = (env_ffmpeg, env_ffprobe) {
             let ffmpeg = PathBuf::from(ffmpeg);
             let ffprobe = PathBuf::from(ffprobe);
             if ffmpeg.is_file() && ffprobe.is_file() {

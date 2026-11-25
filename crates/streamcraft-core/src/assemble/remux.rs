@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use openstream_ffmpeg::FFmpegPaths;
+use streamcraft_ffmpeg::FFmpegPaths;
 use thiserror::Error;
 use tracing::debug;
 
@@ -12,7 +12,7 @@ use crate::media::models::ManifestKind;
 #[derive(Debug, Error)]
 pub enum AssembleError {
     #[error(transparent)]
-    Ffmpeg(#[from] openstream_ffmpeg::FFmpegError),
+    Ffmpeg(#[from] streamcraft_ffmpeg::FFmpegError),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error("{0}")]

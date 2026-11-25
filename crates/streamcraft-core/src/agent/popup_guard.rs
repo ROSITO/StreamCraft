@@ -49,11 +49,11 @@ impl PopupGuard {
 })();"#;
 
     /// Network observer injection — clone exact de `NetworkObserver.injectionSource` (Swift D008).
-    /// `webkit.messageHandlers` → file `window.__openstreamMediaQueue` (poll Rust).
+    /// `webkit.messageHandlers` → file `window.__streamcraftMediaQueue` (poll Rust).
     pub const MEDIA_HOOKS_JS: &'static str = r#"(function () {
-  if (window.__openstreamMediaHookInstalled) { return; }
-  window.__openstreamMediaHookInstalled = true;
-  window.__openstreamMediaQueue = window.__openstreamMediaQueue || [];
+  if (window.__streamcraftMediaHookInstalled) { return; }
+  window.__streamcraftMediaHookInstalled = true;
+  window.__streamcraftMediaQueue = window.__streamcraftMediaQueue || [];
 
   try { window.open = function () { return null; }; } catch (e) {}
 
@@ -68,10 +68,10 @@ impl PopupGuard {
         page: location.href
       };
       try {
-        window.webkit.messageHandlers.openstreamMedia.postMessage(payload);
+        window.webkit.messageHandlers.streamcraftMedia.postMessage(payload);
       } catch (e1) {
-        window.__openstreamMediaQueue = window.__openstreamMediaQueue || [];
-        window.__openstreamMediaQueue.push(payload);
+        window.__streamcraftMediaQueue = window.__streamcraftMediaQueue || [];
+        window.__streamcraftMediaQueue.push(payload);
       }
     } catch (e) {}
   }
@@ -171,8 +171,8 @@ impl PopupGuard {
 })();"#;
 
     pub const DRAIN_MEDIA_QUEUE_JS: &'static str = r#"(function () {
-  var q = window.__openstreamMediaQueue || [];
-  window.__openstreamMediaQueue = [];
+  var q = window.__streamcraftMediaQueue || [];
+  window.__streamcraftMediaQueue = [];
   return JSON.stringify(q);
 })()"#;
 

@@ -1,4 +1,4 @@
-//! Attache `WKScriptMessageHandler` `openstreamMedia` + user script all-frames
+//! Attache `WKScriptMessageHandler` `streamcraftMedia` + user script all-frames
 //! — clone exact Swift `NetworkObserver.attachScriptMessaging`.
 #![cfg(target_os = "macos")]
 
@@ -12,7 +12,7 @@ use objc2_web_kit::{
 };
 
 use crate::ScriptMediaPayload;
-use openstream_core::agent::popup_guard::PopupGuard;
+use streamcraft_core::agent::popup_guard::PopupGuard;
 
 pub type PendingMedia = Arc<Mutex<Vec<ScriptMediaPayload>>>;
 
@@ -50,7 +50,7 @@ define_class!(
                 source,
                 page,
             };
-            eprintln!("[openstreamMedia] {}", payload.url);
+            eprintln!("[streamcraftMedia] {}", payload.url);
             if let Ok(mut g) = this.ivars().pending.lock() {
                 g.push(payload);
             }
@@ -81,7 +81,7 @@ pub fn attach(webview_ptr: *mut std::ffi::c_void, pending: PendingMedia) -> Opti
             .set_ivars(OpenStreamMediaHandlerIvars { pending });
         let handler: Retained<OpenStreamMediaHandler> = msg_send![super(handler), init];
 
-        let name = NSString::from_str("openstreamMedia");
+        let name = NSString::from_str("streamcraftMedia");
         controller.removeScriptMessageHandlerForName(&name);
         let proto = objc2::runtime::ProtocolObject::from_ref(&*handler);
         controller.addScriptMessageHandler_name(proto, &name);
