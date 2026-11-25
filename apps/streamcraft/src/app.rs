@@ -10,6 +10,7 @@ use streamcraft_core::media::cdn_gate::{
 use streamcraft_core::media::heuristics::MediaURLHeuristics;
 use streamcraft_core::media::models::{DetectedMedia, DownloadJob};
 use streamcraft_core::session::SessionCredentialSnapshot;
+use streamcraft_core::store::bookmarks::BookmarkStore;
 use streamcraft_core::store::prefs::AppPreferences;
 use streamcraft_ffmpeg::FFmpegPaths;
 use uuid::Uuid;
@@ -17,11 +18,12 @@ use uuid::Uuid;
 use crate::brand;
 use crate::browser::{BrowserMessage, EmbeddedBrowser};
 use crate::detect::{self, IngestInput};
-use crate::panels::{detected, download_sheet, queue, settings};
+use crate::panels::{bookmarks, detected, download_sheet, queue, settings};
+use crate::panels::bookmarks::BookmarksUi;
 use crate::panels::download_sheet::DownloadSheet;
 use crate::roles;
 use crate::sidebar::{self, NavTab};
-use crate::theme::{self, BG, MUTED};
+use crate::theme::{self, ACCENT, BG, MUTED};
 
 enum AppEvent {
     Detected(DetectedMedia),
@@ -56,6 +58,10 @@ pub struct StreamCraftApp {
     cookie_snapshot: SessionCredentialSnapshot,
     sheet: Option<DownloadSheet>,
     pending_navigate: Option<String>,
+    bookmarks: BookmarkStore,
+    bookmarks_ui: BookmarksUi,
+    /// Previous nav tab — reload favorites from disk when entering Favorites.
+    prev_tab: NavTab,
 }
 
 impl StreamCraftApp {
@@ -114,7 +120,37 @@ impl StreamCraftApp {
             cookie_snapshot: SessionCredentialSnapshot::empty(),
             sheet: None,
             pending_navigate: start_url,
+            bookmarks: BookmarkStore::load(),
+            bookmarks_ui: BookmarksUi::default(),
+            prev_tab: NavTab::Browse,
         }
+    }
+
+    fn current_page_url(&self) -> String {
+        self.page_url
+            .clone()
+            .filter(|u| !u.is_empty())
+            .unwrap_or_else(|| self.url_input.trim().to_string())
+    }
+
+    fn toggle_current_bookmark(&mut self) {
+        let url = self.current_page_url();
+        if url.is_empty() {
+            self.status_line = "Open a page before starring".into();
+            return;
+        }
+        let title = self.page_title.clone().unwrap_or_default();
+        match self.bookmarks.toggle(title, url) {
+            Ok(true) => self.status_line = "Added to favorites".into(),
+            Ok(false) => self.status_line = "Removed from favorites".into(),
+            Err(e) => self.status_line = format!("Favorite failed: {e}"),
+        }
+    }
+
+    fn open_bookmark_url(&mut self, url: String) {
+        self.url_input = url;
+        self.tab = NavTab::Browse;
+        self.navigate();
     }
 
     fn ensure_browser(&mut self, frame: &eframe::Frame, bounds: egui::Rect) {
@@ -547,12 +583,27 @@ impl eframe::App for StreamCraftApp {
         let show_browser = self.tab == NavTab::Browse;
         let mut browser_rect = None;
         let mut queue_action = queue::QueueAction::None;
+        let mut bookmarks_action = bookmarks::BookmarksAction::None;
 
         egui::CentralPanel::default()
             .frame(egui::Frame::new().fill(BG).inner_margin(egui::Margin::same(0)))
             .show(ui, |ui| match self.tab {
                 NavTab::Browse => {
                     browser_rect = Some(browse_with_webview(ui, self));
+                }
+                NavTab::Favorites => {
+                    if self.prev_tab != NavTab::Favorites {
+                        self.bookmarks = BookmarkStore::load();
+                    }
+                    let current = self.current_page_url();
+                    let title = self.page_title.clone().unwrap_or_default();
+                    bookmarks_action = bookmarks::show(
+                        ui,
+                        &mut self.bookmarks,
+                        &mut self.bookmarks_ui,
+                        &current,
+                        &title,
+                    );
                 }
                 NavTab::Queue => {
                     queue_action = queue::show(ui, &self.jobs_cache);
@@ -568,7 +619,11 @@ impl eframe::App for StreamCraftApp {
                 }
             });
 
+        if let bookmarks::BookmarksAction::Open { url } = bookmarks_action {
+            self.open_bookmark_url(url);
+        }
         self.handle_queue_action(queue_action);
+        self.prev_tab = self.tab;
 
         if let Some(rect) = browser_rect {
             if rect.width() > 32.0 && rect.height() > 32.0 {
@@ -607,13 +662,36 @@ fn browse_with_webview(ui: &mut egui::Ui, app: &mut StreamCraftApp) -> egui::Rec
         .show(ui, |ui| {
             ui.horizontal_centered(|ui| {
                 ui.add_space(12.0);
-                let field_w = (ui.available_width() - 280.0).max(200.0);
+                let field_w = (ui.available_width() - 360.0).max(160.0);
                 let resp = ui.add(
                     egui::TextEdit::singleline(&mut app.url_input)
                         .desired_width(field_w)
                         .hint_text("https://… page or stream URL")
                         .margin(egui::Margin::symmetric(12, 8)),
                 );
+                let page = app.current_page_url();
+                let starred = !page.is_empty() && app.bookmarks.is_bookmarked(&page);
+                let star_label = if starred { "★" } else { "☆" };
+                let star = ui.add(
+                    egui::Button::new(
+                        egui::RichText::new(star_label)
+                            .color(if starred { ACCENT } else { MUTED })
+                            .size(18.0),
+                    )
+                    .fill(theme::ELEVATED)
+                    .corner_radius(egui::CornerRadius::same(8))
+                    .min_size(egui::vec2(36.0, 36.0)),
+                );
+                if star
+                    .on_hover_text(if starred {
+                        "Remove from favorites"
+                    } else {
+                        "Add to favorites"
+                    })
+                    .clicked()
+                {
+                    app.toggle_current_bookmark();
+                }
                 if theme::primary_button(ui, "Go").clicked()
                     || (resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
                 {
@@ -627,8 +705,15 @@ fn browse_with_webview(ui: &mut egui::Ui, app: &mut StreamCraftApp) -> egui::Rec
                         }
                     }
                 }
-                if theme::ghost_button(ui, "URL↓").clicked() {
+                // ASCII label — egui default fonts lack "↓" (shows as □).
+                if theme::ghost_button(ui, "Detect")
+                    .on_hover_text("Treat the URL bar as a direct .m3u8 / .mpd / .mp4 stream")
+                    .clicked()
+                {
                     app.enqueue_media_url();
+                }
+                if theme::ghost_button(ui, "Annuaire").clicked() {
+                    app.tab = NavTab::Favorites;
                 }
             });
         });

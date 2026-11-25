@@ -262,3 +262,4 @@ La relance manuelle reste disponible ; elle ne doit plus être le chemin nominal
 | 2026-11-25 | D021 : Craft app egui + craft-libs + MCP ; Tauri → archive/tauri-desktop ; v0.3.0 ; FFmpeg bundle release |
 | 2026-11-25 | Release **v0.3.0** : artefacts Craft (`StreamCraft.app` zip, CLI macOS/Linux aarch64, `streamcraft-app` Linux). Linux bins rebuilt on Debian bookworm (glibc ≤ 2.34). Icon Dock : AppIcon.icns squircle ; Assets.car Tahoe Liquid Glass reporté. |
 | 2026-11-25 | **Repos séparés :** `ROSITO/StreamCraft` = stack Rust/Craft ; `ROSITO/OpenStream` = Swift only (ne pas pousser le Rust sur OpenStream). |
+| 2026-11-25 | Craft Favorites UI (★ + Annuaire / sidebar) sur `BookmarkStore` ; release **v0.3.1**. |

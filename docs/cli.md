@@ -388,9 +388,21 @@ Pour un agent : passer `--title` dès que le nom contenu est connu (ex. depuis f
 - `--referer` : pour `download` d’une URL CDN, mettre l’URL de la page watch.
 - `fetch --auto-download` pose automatiquement le referer = `pageURL` si absent.
 - `--cookie` : header Cookie brut de la session navigateur si le CDN l’exige.
-- Les favoris app sont dans  
+- Les favoris app / CLI sont dans  
   `~/Library/Application Support/StreamCraft/bookmarks.json`  
   (titre + url) — utile pour trouver une page puis `fetch`.
+
+### Favoris GUI (Craft) ↔ CLI
+
+Même fichier pour l’app egui et le CLI. Dans **streamcraft-app** :
+
+| UI | Effet |
+|----|--------|
+| ★ / ☆ (barre d’URL) | Toggle de la page courante |
+| Sidebar **Favorites** / bouton **Annuaire** | Liste : ouvrir, renommer, supprimer ; **+ Add site** (option hub = origin seulement) |
+| Badge **Hub** | Path `/` — source RSS pour `flix digest` et recherche `season '<show>'` |
+
+Sans hubs en favoris : `flix digest` exige `--feed` ; `season` par nom échoue s’il n’y a ni bookmark ni digest flix.
 
 ---
 

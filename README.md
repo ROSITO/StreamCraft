@@ -25,16 +25,27 @@
 | | |
 |--|--|
 | **Detect** | Capture the stream currently playing in the embedded browser (WK all-frames hooks on macOS) |
+| **Favorites** | ★ in the URL bar + **Favorites** / **Annuaire** — hubs for `flix` / `season` (same `bookmarks.json` as the CLI) |
 | **Download** | Parallel segments, retries, resume, assemble from `.parts` |
 | **Audio / sync** | Multi-audio (FR preferred), Vidzy `gk=` unlock, optional subs |
 | **Export** | Film / Series naming under `~/Downloads/StreamCraft/` |
 | **CLI + MCP** | `streamcraft` — JSON Lines / MCP for agents (`docs/cli.md`) |
 
+### Favorites (GUI)
+
+| Action | Where |
+|--------|--------|
+| Toggle current page | ★ / ☆ next to the URL bar |
+| Manage list (add hub, rename, delete, open) | Sidebar **Favorites**, or **Annuaire** in the browse chrome |
+| Shared store | `~/Library/Application Support/StreamCraft/bookmarks.json` (CLI `flix` / `season` read the same file) |
+
+Hubs (homepage origin) power `streamcraft flix digest` and name-only `streamcraft season`.
+
 ---
 
 ## Install
 
-Download **v0.3.0** (Craft GUI) from [Releases](https://github.com/ROSITO/StreamCraft/releases):
+Download **v0.3.1** (Craft GUI) from [Releases](https://github.com/ROSITO/StreamCraft/releases):
 
 | Asset | Platform |
 |-------|----------|

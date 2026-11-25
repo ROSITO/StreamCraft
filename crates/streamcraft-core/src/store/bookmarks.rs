@@ -85,6 +85,9 @@ impl BookmarkStore {
         Some(u.to_string())
     }
 
+    /// Origin used when saving a hub favorite (CLI flix / season).
+    /// Callers: Craft Annuaire, Tauri `add_bookmark`, CLI hub walk.
+    /// User: "il manque la gestion des favoris" — keep non-default ports.
     pub fn hub_origin_url(url: &str) -> Option<String> {
         let u = Url::parse(url).ok()?;
         let host = u.host_str()?.to_string();
@@ -92,7 +95,10 @@ impl BookmarkStore {
         if scheme != "http" && scheme != "https" {
             return None;
         }
-        Some(format!("{scheme}://{host}/"))
+        match u.port() {
+            Some(port) => Some(format!("{scheme}://{host}:{port}/")),
+            None => Some(format!("{scheme}://{host}/")),
+        }
     }
 
     pub fn bookmark_matching(&self, url: &str) -> Option<&Bookmark> {

@@ -11,6 +11,7 @@ use crate::theme::{ACCENT, BAD, BORDER, MUTED, OK, PANEL, TEXT};
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum NavTab {
     Browse,
+    Favorites,
     Queue,
     Settings,
 }
@@ -39,6 +40,17 @@ pub fn show(
             nav_item(ui, tab, NavTab::Browse, "Browse", *expanded, |painter, rect, color| {
                 paint_browse(painter, rect, color);
             });
+            ui.add_space(4.0);
+            nav_item(
+                ui,
+                tab,
+                NavTab::Favorites,
+                "Favorites",
+                *expanded,
+                |painter, rect, color| {
+                    paint_favorites(painter, rect, color);
+                },
+            );
             ui.add_space(4.0);
             nav_item(ui, tab, NavTab::Queue, "Queue", *expanded, |painter, rect, color| {
                 paint_queue(painter, rect, color);
@@ -243,6 +255,25 @@ fn paint_browse(painter: &egui::Painter, rect: egui::Rect, color: egui::Color32)
         color,
         egui::Stroke::NONE,
     ));
+}
+
+fn paint_favorites(painter: &egui::Painter, rect: egui::Rect, color: egui::Color32) {
+    // Non-convex 5-point star via PathShape (convex_polygon would collapse to a pentagon).
+    let c = rect.center();
+    let outer = 8.0_f32;
+    let inner = 3.4_f32;
+    let mut pts = Vec::with_capacity(10);
+    for i in 0..10 {
+        let a = -std::f32::consts::FRAC_PI_2 + (i as f32) * std::f32::consts::PI / 5.0;
+        let r = if i % 2 == 0 { outer } else { inner };
+        pts.push(egui::pos2(c.x + a.cos() * r, c.y + a.sin() * r));
+    }
+    painter.add(egui::Shape::Path(egui::epaint::PathShape {
+        points: pts,
+        closed: true,
+        fill: color,
+        stroke: egui::Stroke::NONE.into(),
+    }));
 }
 
 fn paint_queue(painter: &egui::Painter, rect: egui::Rect, color: egui::Color32) {
