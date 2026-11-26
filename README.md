@@ -45,7 +45,7 @@ Hubs (homepage origin) power `streamcraft flix digest` and name-only `streamcraf
 
 ## Install
 
-Download **v0.3.1** (Craft GUI) from [Releases](https://github.com/ROSITO/StreamCraft/releases):
+Download **v0.3.2** (Craft GUI) from [Releases](https://github.com/ROSITO/StreamCraft/releases):
 
 | Asset | Platform |
 |-------|----------|
@@ -73,6 +73,22 @@ chmod +x streamcraft
 ./scripts/fetch-ffmpeg.sh   # or put ffmpeg/ffprobe in ./Helpers/
 ./streamcraft doctor
 ```
+
+### Linux GUI (Arch / CachyOS / Wayland)
+
+<!-- Supersedes silent Wayland failure. Linked from Install. User: "window handle kind is not supported" (CachyOS) -->
+
+The in-app browser uses wry’s **X11** child WebView. On Wayland, StreamCraft sets `WINIT_UNIX_BACKEND=x11` at startup (XWayland).
+
+```bash
+# deps (Arch / CachyOS)
+sudo pacman -S webkit2gtk-4.1 gtk3 libappindicator-gtk3 librsvg
+
+cargo build -p streamcraft-app --release
+./target/release/streamcraft-app
+```
+
+If you still see `window handle kind is not supported`, unset `WINIT_UNIX_BACKEND=wayland`.
 
 ### Build from source
 

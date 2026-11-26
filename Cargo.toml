@@ -15,7 +15,9 @@ default-members = [
 ]
 
 [workspace.package]
-version = "0.3.1"
+# Workspace version → streamcraft-app / CLI binaries (cargo). No secrets.
+# User: CachyOS "window handle kind is not supported" → Linux X11 webview fix = 0.3.2
+version = "0.3.2"
 edition = "2024"
 license = "MIT"
 authors = ["StreamCraft contributors"]

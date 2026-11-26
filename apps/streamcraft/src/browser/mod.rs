@@ -242,9 +242,20 @@ impl EmbeddedBrowser {
             })
             .with_bounds(egui_to_wry_rect(bounds));
 
-        let webview = builder
-            .build_as_child(parent)
-            .map_err(|e| anyhow::anyhow!("webview: {e}"))?;
+        // Linux: build_as_child is X11-only — see linux_webview.rs (CachyOS Wayland).
+        let webview = builder.build_as_child(parent).map_err(|e| {
+            let msg = e.to_string();
+            if msg.contains("window handle kind") {
+                anyhow::anyhow!(
+                    "webview: {msg}. On Linux the in-app browser needs an X11 window \
+                     (wry child WebView is X11-only). StreamCraft forces \
+                     WINIT_UNIX_BACKEND=x11 at startup; if you overrode it to wayland, \
+                     unset it or run under X11/XWayland."
+                )
+            } else {
+                anyhow::anyhow!("webview: {e}")
+            }
+        })?;
 
         // Parité Tauri/Swift: WKScriptMessageHandler all-frames (pas seulement wry ipc).
         // wry.manager() == Tauri WKWebView.configuration.userContentController

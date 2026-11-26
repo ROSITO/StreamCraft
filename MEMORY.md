@@ -263,3 +263,4 @@ La relance manuelle reste disponible ; elle ne doit plus être le chemin nominal
 | 2026-11-25 | Release **v0.3.0** : artefacts Craft (`StreamCraft.app` zip, CLI macOS/Linux aarch64, `streamcraft-app` Linux). Linux bins rebuilt on Debian bookworm (glibc ≤ 2.34). Icon Dock : AppIcon.icns squircle ; Assets.car Tahoe Liquid Glass reporté. |
 | 2026-11-25 | **Repos séparés :** `ROSITO/StreamCraft` = stack Rust/Craft ; `ROSITO/OpenStream` = Swift only (ne pas pousser le Rust sur OpenStream). |
 | 2026-11-25 | Craft Favorites UI (★ + Annuaire / sidebar) sur `BookmarkStore` ; release **v0.3.1**. |
+| 2026-11-26 | Linux GUI Wayland (CachyOS) : wry child = X11 only → `WINIT_UNIX_BACKEND=x11` + gtk pump (`linux_webview.rs`). Supersedes bare `build_as_child` on Wayland. User: "window handle kind is not supported". |

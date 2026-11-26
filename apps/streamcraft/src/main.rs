@@ -1,9 +1,18 @@
 //! StreamCraft Craft desktop host (egui). Binary: `streamcraft-app` (D021).
+//! On Linux, calls `linux_webview::prepare_host` before eframe (Wayland → X11 for wry).
 
 mod app;
 mod brand;
 mod browser;
 mod detect;
+#[cfg(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd"
+))]
+mod linux_webview;
 #[cfg(target_os = "macos")]
 mod macos_dock_icon;
 mod panels;
@@ -21,6 +30,15 @@ fn main() -> eframe::Result {
         )
         .with_writer(std::io::stderr)
         .init();
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "dragonfly",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    ))]
+    linux_webview::prepare_host();
 
     // macOS: IconData::default() tells eframe NOT to call setApplicationIconImage
     // (and NOT to fall back to the egui logo). Dock then uses AppIcon.icns from

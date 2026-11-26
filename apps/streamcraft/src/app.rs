@@ -502,6 +502,15 @@ impl eframe::App for StreamCraftApp {
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         #[cfg(target_os = "macos")]
         crate::macos_dock_icon::ensure_applied();
+        // Linux: pump GTK for wry WebKitGTK (see linux_webview.rs). CachyOS Wayland report.
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "dragonfly",
+            target_os = "freebsd",
+            target_os = "netbsd",
+            target_os = "openbsd"
+        ))]
+        crate::linux_webview::pump_gtk();
         self.drain_browser();
         self.drain_events();
         self.poll_jobs();

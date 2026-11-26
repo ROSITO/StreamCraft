@@ -5299,7 +5299,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "streamcraft-app"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -5307,6 +5307,7 @@ dependencies = [
  "dirs",
  "eframe",
  "egui",
+ "gtk",
  "objc2 0.6.5",
  "objc2-app-kit 0.3.2",
  "objc2-foundation 0.3.2",
@@ -5329,7 +5330,7 @@ dependencies = [
 
 [[package]]
 name = "streamcraft-cli"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "cap-std",
@@ -5353,7 +5354,7 @@ dependencies = [
 
 [[package]]
 name = "streamcraft-core"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "bytes",
@@ -5377,7 +5378,7 @@ dependencies = [
 
 [[package]]
 name = "streamcraft-ffmpeg"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "serde",
