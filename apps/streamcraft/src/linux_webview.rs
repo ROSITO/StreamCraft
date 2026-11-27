@@ -4,8 +4,10 @@
 //! On Wayland (CachyOS / Arch / KDE / GNOME default) that fails with
 //! `the window handle kind is not supported`.
 //!
-//! Fix: force winit onto X11 (XWayland) unless the user already set
-//! `WINIT_UNIX_BACKEND`, init GTK, and pump the GTK loop each frame.
+//! Fix: build the winit event loop with `with_x11()` (XWayland) unless the user
+//! sets `WINIT_UNIX_BACKEND=wayland`, init GTK, and pump the GTK loop each frame.
+//! winit ≥ 0.29 no longer reads `WINIT_UNIX_BACKEND` itself: it picks Wayland
+//! whenever `WAYLAND_DISPLAY` is set, so an env var alone does not force X11.
 //!
 //! Callers: `main.rs` (`prepare_host`), `app.rs` `StreamCraftApp::logic` (`pump_gtk`).
 //! No prior Linux webview host module existed under `apps/streamcraft/src/`.
@@ -25,23 +27,6 @@ use std::sync::Once;
 pub fn prepare_host() {
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
-        if std::env::var_os("WINIT_UNIX_BACKEND").is_none() {
-            // Prefer X11 so wry can embed WebKitGTK as a child of the egui window.
-            // Users who need native Wayland can set WINIT_UNIX_BACKEND=wayland
-            // (browser embed will still fail until wry gains Wayland child support).
-            unsafe {
-                std::env::set_var("WINIT_UNIX_BACKEND", "x11");
-            }
-            tracing::info!(
-                "Linux: WINIT_UNIX_BACKEND=x11 (required for in-app browser / wry child WebView)"
-            );
-        } else {
-            tracing::info!(
-                backend = %std::env::var("WINIT_UNIX_BACKEND").unwrap_or_default(),
-                "Linux: WINIT_UNIX_BACKEND already set"
-            );
-        }
-
         if let Err(e) = gtk::init() {
             tracing::error!("gtk::init failed — WebView will not work: {e}");
         } else {
@@ -55,4 +40,18 @@ pub fn pump_gtk() {
     while gtk::events_pending() {
         let _ = gtk::main_iteration_do(false);
     }
+}
+
+/// eframe hook forcing the X11 backend so wry can embed WebKitGTK as a child.
+/// `WINIT_UNIX_BACKEND=wayland` opts out (the in-app browser then won't embed).
+pub fn x11_event_loop_hook() -> Option<eframe::EventLoopBuilderHook> {
+    if std::env::var("WINIT_UNIX_BACKEND").is_ok_and(|v| v.eq_ignore_ascii_case("wayland")) {
+        tracing::info!("Linux: native Wayland requested — in-app browser embed unavailable");
+        return None;
+    }
+    tracing::info!("Linux: forcing X11 event loop (required for wry child WebView)");
+    Some(Box::new(|builder| {
+        use winit::platform::x11::EventLoopBuilderExtX11;
+        builder.with_x11();
+    }))
 }

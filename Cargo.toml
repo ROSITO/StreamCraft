@@ -5,7 +5,6 @@ members = [
     "crates/streamcraft-cli",
     "crates/streamcraft-ffmpeg",
     "apps/streamcraft",
-    # "apps/desktop/src-tauri",  # legacy Tauri; exclude — wry 0.57 vs egui wry 0.53
 ]
 default-members = [
     "crates/streamcraft-core",
@@ -16,8 +15,8 @@ default-members = [
 
 [workspace.package]
 # Workspace version → streamcraft-app / CLI binaries (cargo). No secrets.
-# User: CachyOS "window handle kind is not supported" → Linux X11 webview fix = 0.3.2
-version = "0.3.2"
+# 0.4.0: audit fixes, DASH, scheduler, Sync sheet, bundled + on-demand FFmpeg.
+version = "0.4.0"
 edition = "2024"
 license = "MIT"
 authors = ["StreamCraft contributors"]
@@ -33,13 +32,13 @@ dirs = "6"
 eframe = { version = "0.37", default-features = false, features = ["wgpu", "accesskit", "default_fonts", "clipboard", "wayland", "x11"] }
 egui = { version = "0.37", features = ["default_fonts"] }
 futures = "0.3"
-quick-xml = { version = "0.37", features = ["serialize"] }
 regex = "1"
-reqwest = { version = "0.12", default-features = false, features = ["json", "cookies", "gzip", "brotli", "deflate", "rustls-tls", "stream"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "cookies", "gzip", "brotli", "deflate", "rustls-tls", "stream", "socks"] }
 rfd = "0.15"
 rusqlite = { version = "0.32", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10"
 thiserror = "2"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util", "process", "sync", "time", "signal"] }
 tokio-util = { version = "0.7", features = ["rt"] }

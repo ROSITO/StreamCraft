@@ -2,7 +2,7 @@
 
 Contrats techniques et frontières de modules.  
 **Stack courante (D021) :** Rust + egui/eframe Craft app + wry browser + CLI/MCP (macOS / Windows / Linux).  
-Legacy : Swift `archive/swift/` ; Tauri `archive/tauri-desktop/`.
+Legacy : Swift `archive/swift/` ; Tauri supprimé (dernier état : commit `e68165d`).
 
 Complète le PRD. En cas de doute sur le *quoi*, voir le PRD ; sur le *comment découper*, ce fichier gagne.
 
@@ -244,7 +244,7 @@ enum DownloadState: Sendable {
 | Target | Contenu |
 |--------|---------|
 | `archive/swift/OpenStream` | *(legacy)* App SwiftUI |
-| `StreamCraft` (Tauri) | App desktop actuelle |
+| `apps/streamcraft` (egui) | App desktop actuelle (`streamcraft-app`) |
 | `OpenStreamCore` | Protocols, modèles, coordinators |
 | `OpenStreamBrowser` | WKWebView wrapper, cookie bridge |
 | `OpenStreamMedia` | Detector, HLS/DASH parsers |

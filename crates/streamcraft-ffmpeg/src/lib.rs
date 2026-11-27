@@ -3,7 +3,10 @@
 //! Resolution order (D017):
 //! 1. `STREAMCRAFT_FFMPEG` / `STREAMCRAFT_FFPROBE` env vars (legacy `OPENSTREAM_*` accepted)
 //! 2. Bundled helpers next to the executable (`Helpers/` or `resources/ffmpeg/{os-arch}/`)
-//! 3. `PATH`
+//! 3. On-demand install in the user data dir (`install::install_dir`)
+//! 4. `PATH`
+
+pub mod install;
 
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -53,6 +56,17 @@ impl FFmpegPaths {
             return Ok(paths);
         }
 
+        if let Some(dir) = install::install_dir() {
+            let (ffmpeg, ffprobe) = (dir.join(exe_name("ffmpeg")), dir.join(exe_name("ffprobe")));
+            if ffmpeg.is_file() && ffprobe.is_file() {
+                return Ok(Self {
+                    ffmpeg,
+                    ffprobe,
+                    source: format!("installed:{}", dir.display()),
+                });
+            }
+        }
+
         if let (Some(ffmpeg), Some(ffprobe)) = (which("ffmpeg"), which("ffprobe")) {
             return Ok(Self {
                 ffmpeg,
@@ -67,6 +81,8 @@ impl FFmpegPaths {
     pub async fn run_ffmpeg(&self, args: &[String]) -> Result<(), FFmpegError> {
         debug!(?args, "spawning ffmpeg");
         let output = Command::new(&self.ffmpeg)
+            // No version banner: keeps the error surfaced to the user readable.
+            .arg("-hide_banner")
             .args(args)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -185,7 +201,7 @@ impl MediaStreamTiming {
     pub fn video_timeline_skew_ratio(&self) -> Option<f64> {
         let video_duration = self.video_duration.filter(|d| *d > 1.0)?;
         let frames = self.video_frame_count.filter(|f| *f > 0.0)?;
-        let fps = parse_rate(self.video_r_frame_rate.as_deref())?;
+        let fps = nominal_fps(parse_rate(self.video_r_frame_rate.as_deref())?);
         if fps <= 0.0 {
             return None;
         }
@@ -195,6 +211,20 @@ impl MediaStreamTiming {
         }
         Some(video_duration / expected)
     }
+}
+
+/// Snap a measured rate to the nearest broadcast rate (within 3 %). After a
+/// timeline compaction (`-itsscale`) ffmpeg reports e.g. 25.42 fps for a 25 fps
+/// clip; without snapping the skew would still read ≈1.016 and a second
+/// "repair" would compress the file again.
+fn nominal_fps(fps: f64) -> f64 {
+    const STANDARD: [f64; 9] = [23.976, 24.0, 25.0, 29.97, 30.0, 48.0, 50.0, 59.94, 60.0];
+    STANDARD
+        .iter()
+        .copied()
+        .min_by(|a, b| (a - fps).abs().total_cmp(&(b - fps).abs()))
+        .filter(|s| (s - fps).abs() / s < 0.03)
+        .unwrap_or(fps)
 }
 
 fn parse_rate(value: Option<&str>) -> Option<f64> {
@@ -221,6 +251,9 @@ fn find_bundled() -> Option<FFmpegPaths> {
             candidates.push(dir.join("ffmpeg"));
             let mut cursor = dir.to_path_buf();
             for _ in 0..6 {
+                // `Contents/Helpers` when the exe is `StreamCraft.app/Contents/MacOS/…`
+                // (where package-macos-app.sh puts them).
+                candidates.push(cursor.join("Helpers"));
                 candidates.push(cursor.join("resources").join("ffmpeg").join(os_arch()));
                 candidates.push(cursor.join("resources").join("Helpers"));
                 if !cursor.pop() {
@@ -248,7 +281,12 @@ fn find_bundled() -> Option<FFmpegPaths> {
     None
 }
 
-fn os_arch() -> String {
+/// `name` plus `.exe` on Windows.
+pub(crate) fn exe_name(name: &str) -> String {
+    if cfg!(windows) { format!("{name}.exe") } else { name.to_string() }
+}
+
+pub(crate) fn os_arch() -> String {
     let os = std::env::consts::OS;
     let arch = std::env::consts::ARCH;
     format!("{os}-{arch}")
@@ -272,6 +310,13 @@ fn which(name: &str) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fps_snaps_to_broadcast_rate() {
+        assert_eq!(nominal_fps(305.0 / 12.0), 25.0);
+        assert_eq!(nominal_fps(30000.0 / 1001.0), 29.97);
+        assert_eq!(nominal_fps(12.5), 12.5);
+    }
 
     #[test]
     fn os_arch_non_empty() {

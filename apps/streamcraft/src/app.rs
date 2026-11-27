@@ -1,14 +1,15 @@
 use std::collections::HashSet;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use egui::{RichText, Sense};
 use streamcraft_core::download::queue::DownloadQueue;
-use streamcraft_core::download::service::DownloadService;
+use streamcraft_core::download::service::{DownloadService, JobCredentials};
 use streamcraft_core::media::cdn_gate::{
-    hls_capture_score, needs_player_unlock, same_stream_family,
+    needs_player_unlock, pick_capture, same_stream_family,
 };
 use streamcraft_core::media::heuristics::MediaURLHeuristics;
-use streamcraft_core::media::models::{DetectedMedia, DownloadJob};
+use streamcraft_core::media::models::{DetectedMedia, DownloadJob, DownloadState};
 use streamcraft_core::session::SessionCredentialSnapshot;
 use streamcraft_core::store::bookmarks::BookmarkStore;
 use streamcraft_core::store::prefs::AppPreferences;
@@ -18,7 +19,7 @@ use uuid::Uuid;
 use crate::brand;
 use crate::browser::{BrowserMessage, EmbeddedBrowser};
 use crate::detect::{self, IngestInput};
-use crate::panels::{bookmarks, detected, download_sheet, queue, settings};
+use crate::panels::{bookmarks, detected, download_sheet, queue, settings, sync_sheet};
 use crate::panels::bookmarks::BookmarksUi;
 use crate::panels::download_sheet::DownloadSheet;
 use crate::roles;
@@ -29,6 +30,16 @@ enum AppEvent {
     Detected(DetectedMedia),
     Status(String),
     Jobs(Vec<DownloadJob>),
+    /// Queue state changed: start workers if slots are free.
+    Pump,
+    /// Probe result for the sync sheet's file.
+    SyncTiming(std::path::PathBuf, Option<streamcraft_ffmpeg::MediaStreamTiming>),
+    /// A sync operation finished (message for the sheet).
+    SyncDone(std::path::PathBuf, String),
+    /// FFmpeg install progress line.
+    FfmpegProgress(String),
+    /// FFmpeg install finished: resolved source, or the error.
+    FfmpegInstalled(Result<String, String>),
 }
 
 pub struct StreamCraftApp {
@@ -41,10 +52,13 @@ pub struct StreamCraftApp {
     seen_urls: HashSet<String>,
     auto_enqueued: HashSet<String>,
     queue: Arc<DownloadQueue>,
+    active_workers: Arc<AtomicUsize>,
     jobs_cache: Vec<DownloadJob>,
     status_line: String,
     ffmpeg_ok: bool,
     ffmpeg_source: String,
+    /// Some(progress line) while the on-demand FFmpeg install runs.
+    ffmpeg_installing: Option<String>,
     browser: Option<EmbeddedBrowser>,
     browser_tx: Option<std::sync::mpsc::Sender<BrowserMessage>>,
     browser_rx: Option<std::sync::mpsc::Receiver<BrowserMessage>>,
@@ -57,6 +71,7 @@ pub struct StreamCraftApp {
     page_title: Option<String>,
     cookie_snapshot: SessionCredentialSnapshot,
     sheet: Option<DownloadSheet>,
+    sync: Option<sync_sheet::SyncSheet>,
     pending_navigate: Option<String>,
     bookmarks: BookmarkStore,
     bookmarks_ui: BookmarksUi,
@@ -99,6 +114,7 @@ impl StreamCraftApp {
             seen_urls: HashSet::new(),
             auto_enqueued: HashSet::new(),
             queue: DownloadQueue::new(),
+            active_workers: Arc::new(AtomicUsize::new(0)),
             jobs_cache: Vec::new(),
             status_line: if ffmpeg_ok {
                 format!("Ready | FFmpeg {ffmpeg_source}")
@@ -107,6 +123,7 @@ impl StreamCraftApp {
             },
             ffmpeg_ok,
             ffmpeg_source,
+            ffmpeg_installing: None,
             browser: None,
             browser_tx: Some(btx),
             browser_rx: Some(brx),
@@ -119,6 +136,7 @@ impl StreamCraftApp {
             page_title: None,
             cookie_snapshot: SessionCredentialSnapshot::empty(),
             sheet: None,
+            sync: None,
             pending_navigate: start_url,
             bookmarks: BookmarkStore::load(),
             bookmarks_ui: BookmarksUi::default(),
@@ -184,7 +202,7 @@ impl StreamCraftApp {
         let Some(browser) = &self.browser else {
             return;
         };
-        let _ = browser.set_visible(show && self.sheet.is_none());
+        let _ = browser.set_visible(show && self.sheet.is_none() && self.sync.is_none());
         if show {
             if self.last_browser_bounds != Some(bounds) {
                 let _ = browser.set_bounds(bounds);
@@ -277,26 +295,21 @@ impl StreamCraftApp {
         self.rt.spawn(async move {
             let service = DownloadService::with_queue(prefs.clone(), q.clone());
             match service
-                .enqueue_media(media, metadata, variant, audio, subtitle)
+                .enqueue_media(
+                    media,
+                    metadata,
+                    variant,
+                    audio,
+                    subtitle,
+                    JobCredentials {
+                        cookie_header: cookie,
+                        referer,
+                    },
+                )
                 .await
             {
-                Ok(job_id) => {
-                    service
-                        .set_job_credentials(job_id, cookie, referer)
-                        .await;
-                    if let Err(e) = service.run_job(job_id).await {
-                        tracing::error!(error = %e, %job_id, "download failed");
-                        let _ = tx.send(AppEvent::Status(format!("Failed: {e}")));
-                    } else {
-                        let _ = tx.send(AppEvent::Status("Download completed".into()));
-                    }
-                    // Drain remaining queued jobs (concurrency = sequential chain for MVP)
-                    while let Some(next) = q.next_queued().await {
-                        let svc = DownloadService::with_queue(prefs.clone(), q.clone());
-                        if let Err(e) = svc.run_job(next.id).await {
-                            tracing::error!(error = %e, job_id = %next.id, "queued download failed");
-                        }
-                    }
+                Ok(_) => {
+                    let _ = tx.send(AppEvent::Pump);
                 }
                 Err(e) => {
                     let _ = tx.send(AppEvent::Status(format!("Enqueue failed: {e}")));
@@ -377,7 +390,7 @@ impl StreamCraftApp {
     fn drain_events(&mut self) {
         while let Ok(ev) = self.event_rx.try_recv() {
             match ev {
-                AppEvent::Detected(media) => {
+                AppEvent::Detected(mut media) => {
                     if self
                         .detected
                         .iter()
@@ -385,16 +398,18 @@ impl StreamCraftApp {
                     {
                         continue;
                     }
-                    // Prefer player-unlocked media (`gk=`) over cold master of same CDN family.
+                    // Same CDN stream seen twice: keep the best capture (never audio-only
+                    // over video) carrying the player's `gk` unlock.
                     if let Some(idx) = self.detected.iter().position(|m| {
                         same_stream_family(&m.source_url, &media.source_url)
                     }) {
-                        let old_score = hls_capture_score(&self.detected[idx].source_url);
-                        let new_score = hls_capture_score(&media.source_url);
-                        if new_score <= old_score {
+                        let old = self.detected.remove(idx);
+                        let (keep, changed) = pick_capture(old, media);
+                        if !changed {
+                            self.detected.insert(idx, keep);
                             continue;
                         }
-                        self.detected.remove(idx);
+                        media = keep;
                     }
                     let locked = needs_player_unlock(&media.source_url);
                     let auto = self.prefs.should_auto_enqueue(media.kind) && !locked;
@@ -428,9 +443,128 @@ impl StreamCraftApp {
                     }
                 }
                 AppEvent::Status(s) => self.status_line = s,
-                AppEvent::Jobs(jobs) => self.jobs_cache = jobs,
+                AppEvent::Jobs(jobs) => {
+                    self.jobs_cache = jobs;
+                    // Self-heals a job enqueued while every worker was exiting.
+                    if self.jobs_cache.iter().any(|j| j.state == DownloadState::Queued) {
+                        self.pump();
+                    }
+                }
+                AppEvent::Pump => self.pump(),
+                AppEvent::FfmpegProgress(m) => self.ffmpeg_installing = Some(m),
+                AppEvent::FfmpegInstalled(r) => {
+                    self.ffmpeg_installing = None;
+                    match r {
+                        Ok(source) => {
+                            self.ffmpeg_ok = true;
+                            self.ffmpeg_source = short_source(&source);
+                            self.status_line = "FFmpeg installé".into();
+                        }
+                        Err(e) => self.status_line = format!("Installation FFmpeg échouée : {e}"),
+                    }
+                }
+                AppEvent::SyncTiming(path, timing) => {
+                    if let Some(s) = self.sync.as_mut().filter(|s| s.path == path) {
+                        s.timing = timing;
+                    }
+                }
+                AppEvent::SyncDone(path, msg) => {
+                    self.status_line = msg.clone();
+                    if let Some(s) = self.sync.as_mut().filter(|s| s.path == path) {
+                        s.busy = false;
+                        s.status = Some(msg);
+                        self.probe_sync(path);
+                    }
+                }
             }
         }
+    }
+
+    /// Scheduler: top up workers to `max_concurrent_jobs` (re-read each call). Each worker
+    /// claims jobs atomically until none are queued, then exits.
+    fn pump(&mut self) {
+        let max = self.prefs.max_concurrent_jobs.max(1);
+        while self.active_workers.load(Ordering::SeqCst) < max {
+            self.active_workers.fetch_add(1, Ordering::SeqCst);
+            let q = self.queue.clone();
+            let prefs = self.prefs.clone();
+            let tx = self.event_tx.clone();
+            let active = self.active_workers.clone();
+            self.rt.spawn(async move {
+                let svc = DownloadService::with_queue(prefs, q.clone());
+                while let Some(id) = q.claim_next().await {
+                    let msg = match svc.run_job(id).await {
+                        Ok(_) => "Download completed".to_string(),
+                        Err(e) => {
+                            tracing::error!(error = %e, job_id = %id, "download failed");
+                            format!("Failed: {e}")
+                        }
+                    };
+                    let _ = tx.send(AppEvent::Status(msg));
+                }
+                active.fetch_sub(1, Ordering::SeqCst);
+            });
+        }
+    }
+
+    /// User clicked "Installer FFmpeg": download + verify in the background.
+    fn install_ffmpeg(&mut self) {
+        self.ffmpeg_installing = Some("Préparation…".into());
+        let tx = self.event_tx.clone();
+        self.rt.spawn(async move {
+            let ptx = tx.clone();
+            let r = streamcraft_ffmpeg::install::install(move |m: &str| {
+                let _ = ptx.send(AppEvent::FfmpegProgress(m.to_string()));
+            })
+            .await;
+            let _ = tx.send(AppEvent::FfmpegInstalled(
+                r.map(|p| p.source).map_err(|e| e.to_string()),
+            ));
+        });
+    }
+
+    fn probe_sync(&self, path: std::path::PathBuf) {
+        let tx = self.event_tx.clone();
+        self.rt.spawn(async move {
+            let timing = match streamcraft_ffmpeg::FFmpegPaths::resolve() {
+                Ok(ff) => ff.probe_stream_timing(&path).await.ok(),
+                Err(_) => None,
+            };
+            let _ = tx.send(AppEvent::SyncTiming(path, timing));
+        });
+    }
+
+    fn run_sync(&mut self, op: sync_sheet::SyncOp) {
+        use streamcraft_core::assemble::av_sync;
+        let Some(sheet) = self.sync.as_mut() else {
+            return;
+        };
+        sheet.busy = true;
+        sheet.status = Some("Traitement…".into());
+        let path = sheet.path.clone();
+        let tx = self.event_tx.clone();
+        self.rt.spawn(async move {
+            let msg = match streamcraft_ffmpeg::FFmpegPaths::resolve() {
+                Err(e) => format!("FFmpeg introuvable : {e}"),
+                Ok(ff) => {
+                    let r = match op {
+                        sync_sheet::SyncOp::PlayerAlign => av_sync::realign_like_player(&ff, &path).await,
+                        sync_sheet::SyncOp::Drift(lead) => {
+                            av_sync::correct_av_drift(&ff, &path, Some(lead)).await
+                        }
+                        sync_sheet::SyncOp::Shift(s) => {
+                            av_sync::apply_manual_audio_shift(&ff, &path, s).await
+                        }
+                        sync_sheet::SyncOp::Auto => av_sync::repair_av_sync(&ff, &path).await,
+                    };
+                    match r {
+                        Ok(res) => res.user_message(),
+                        Err(e) => format!("Échec : {e}"),
+                    }
+                }
+            };
+            let _ = tx.send(AppEvent::SyncDone(path, msg));
+        });
     }
 
     fn poll_jobs(&mut self) {
@@ -454,34 +588,20 @@ impl StreamCraftApp {
             }
             queue::QueueAction::Resume(id) => {
                 let q = self.queue.clone();
-                let prefs = self.prefs.clone();
                 let tx = self.event_tx.clone();
                 self.rt.spawn(async move {
                     if q.resume(id).await {
-                        let svc = DownloadService::with_queue(prefs.clone(), q.clone());
-                        if let Err(e) = svc.run_job(id).await {
-                            let _ = tx.send(AppEvent::Status(format!("Resume failed: {e}")));
-                        }
-                        while let Some(next) = q.next_queued().await {
-                            let svc = DownloadService::with_queue(prefs.clone(), q.clone());
-                            let _ = svc.run_job(next.id).await;
-                        }
+                        let _ = tx.send(AppEvent::Pump);
                     }
                 });
                 self.status_line = "Resumed".into();
             }
             queue::QueueAction::Assemble(id) => {
                 let q = self.queue.clone();
-                let prefs = self.prefs.clone();
                 let tx = self.event_tx.clone();
                 self.rt.spawn(async move {
                     if q.request_assemble(id).await {
-                        let svc = DownloadService::with_queue(prefs, q);
-                        if let Err(e) = svc.run_job(id).await {
-                            let _ = tx.send(AppEvent::Status(format!("Assemble failed: {e}")));
-                        } else {
-                            let _ = tx.send(AppEvent::Status("Assembled".into()));
-                        }
+                        let _ = tx.send(AppEvent::Pump);
                     }
                 });
             }
@@ -490,6 +610,10 @@ impl StreamCraftApp {
                 self.rt.spawn(async move {
                     let _ = q.remove(id).await;
                 });
+            }
+            queue::QueueAction::Sync(path, title) => {
+                self.sync = Some(sync_sheet::SyncSheet::new(path.clone(), title));
+                self.probe_sync(path);
             }
             queue::QueueAction::Open(path) => {
                 let _ = open::that(&path);
@@ -594,6 +718,34 @@ impl eframe::App for StreamCraftApp {
         let mut queue_action = queue::QueueAction::None;
         let mut bookmarks_action = bookmarks::BookmarksAction::None;
 
+        if !self.ffmpeg_ok {
+            let mut install = false;
+            egui::Panel::top("ffmpeg_banner")
+                .frame(egui::Frame::new().fill(theme::ACCENT_DIM).inner_margin(egui::Margin::symmetric(16, 10)))
+                .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label(
+                            RichText::new("FFmpeg est introuvable : il sert à assembler les vidéos téléchargées.")
+                                .color(theme::TEXT),
+                        );
+                        match &self.ffmpeg_installing {
+                            Some(step) => {
+                                ui.spinner();
+                                ui.label(RichText::new(step).color(theme::MUTED));
+                            }
+                            None => {
+                                if theme::primary_button(ui, "Installer FFmpeg").clicked() {
+                                    install = true;
+                                }
+                            }
+                        }
+                    });
+                });
+            if install {
+                self.install_ffmpeg();
+            }
+        }
+
         egui::CentralPanel::default()
             .frame(egui::Frame::new().fill(BG).inner_margin(egui::Margin::same(0)))
             .show(ui, |ui| match self.tab {
@@ -660,6 +812,15 @@ impl eframe::App for StreamCraftApp {
                     self.start_download_from_sheet();
                 }
                 download_sheet::SheetAction::None => {}
+            }
+        }
+
+        // Sync sheet overlay
+        if let Some(sheet) = self.sync.as_mut() {
+            match sync_sheet::show(ui, sheet) {
+                sync_sheet::SyncAction::Close => self.sync = None,
+                sync_sheet::SyncAction::Run(op) => self.run_sync(op),
+                sync_sheet::SyncAction::None => {}
             }
         }
     }
@@ -749,6 +910,8 @@ const COLOR32_HOLE: egui::Color32 = egui::Color32::from_rgb(0x0a, 0x0a, 0x0c);
 fn short_source(source: &str) -> String {
     if source.starts_with("bundled") {
         "bundled".into()
+    } else if source.starts_with("installed") {
+        "installed".into()
     } else if source == "path" {
         "PATH".into()
     } else if source == "env" {

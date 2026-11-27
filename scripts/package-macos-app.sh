@@ -28,6 +28,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Helpers"
 cp "$ROOT/target/release/streamcraft-app" "$APP/Contents/MacOS/streamcraft-app"
 cp "$ROOT/target/release/streamcraft" "$APP/Contents/MacOS/streamcraft"
 cp "$FF/ffmpeg" "$FF/ffprobe" "$APP/Contents/Helpers/"
+cp "$ROOT/resources/FFMPEG-NOTICE.txt" "$ROOT/LICENSE" "$APP/Contents/Resources/"
 chmod +x "$APP/Contents/MacOS/"* "$APP/Contents/Helpers/"*
 
 if [[ -f "$ROOT/apps/streamcraft/assets/AppIcon.icns" ]]; then
@@ -53,6 +54,11 @@ EOF
 echo -n 'APPL????' > "$APP/Contents/PkgInfo"
 
 codesign --force --deep -s - "$APP" 2>/dev/null || true
+
+# The app must find its own FFmpeg (Contents/Helpers) with no Homebrew/PATH copy:
+# this check runs the binary *inside* the bundle, unlike the bin/ check below.
+env -i HOME="$DEST" PATH=/usr/bin:/bin "$APP/Contents/MacOS/streamcraft" doctor --json | grep -q 'source=bundled' \
+  || { echo "error: StreamCraft.app does not resolve its bundled ffmpeg" >&2; exit 1; }
 
 mkdir -p "$DEST/bin" "$DEST/Helpers"
 cp "$ROOT/target/release/streamcraft" "$DEST/bin/"

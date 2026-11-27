@@ -1,5 +1,5 @@
 //! Attache `WKScriptMessageHandler` `streamcraftMedia` + user script all-frames.
-//! Port exact de `apps/desktop/src-tauri/src/macos_media_hook.rs` (Tauri) /
+//! Port exact de `macos_media_hook.rs` de l'app Tauri (supprimée, commit `e68165d`) /
 //! Swift `NetworkObserver.attachScriptMessaging` (D008).
 //!
 //! Callers: `browser/mod.rs` `EmbeddedBrowser::create` (après `build_as_child`).

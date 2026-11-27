@@ -12,12 +12,12 @@ Thanks for your interest. StreamCraft is a **cross-platform desktop app** + head
 ## Setup
 
 ```bash
-# Rust stable + Node 22+
+# Rust stable
 cargo test -p streamcraft-core
 cargo build -p streamcraft-cli --release   # → target/release/streamcraft
 ./scripts/fetch-ffmpeg.sh
 
-cd apps/desktop && npm install && npm run tauri dev
+cargo run -p streamcraft-app               # GUI (egui + wry)
 ```
 
 CLI contract (users + agents): [`docs/cli.md`](docs/cli.md).

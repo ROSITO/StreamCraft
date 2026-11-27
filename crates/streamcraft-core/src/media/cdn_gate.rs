@@ -87,10 +87,42 @@ pub fn hls_capture_score(url: &Url) -> i32 {
     } else if u.contains("master.m3u8") || u.ends_with("master") {
         s -= 20;
     }
-    if u.contains("index-a") && !u.contains("index-v") {
-        s -= 10;
+    if is_audio_only_playlist(url) {
+        // Outweighs the `gk` bonus: an audio rendition must never win over video.
+        s -= 200;
     }
     s
+}
+
+/// Vidzy-style audio rendition (`index-a1.m3u8`), as opposed to `index-v1-a1`.
+pub fn is_audio_only_playlist(url: &Url) -> bool {
+    let u = url.path().to_lowercase();
+    u.contains("index-a") && !u.contains("index-v")
+}
+
+/// Two captures of the same stream: keep the better one (never audio-only over
+/// video) and give it the other's `gk` unlock if it lacks one.
+/// Returns the kept media and whether it differs from `old`.
+pub fn pick_capture(
+    old: crate::media::models::DetectedMedia,
+    new: crate::media::models::DetectedMedia,
+) -> (crate::media::models::DetectedMedia, bool) {
+    let old_url = old.source_url.clone();
+    let (mut keep, other) = if hls_capture_score(&new.source_url) > hls_capture_score(&old.source_url) {
+        (new, old)
+    } else {
+        (old, new)
+    };
+    if !has_gate_token(&keep.source_url)
+        && let Some(tok) = gate_token(&other.source_url)
+    {
+        keep.source_url = apply_gate_token(&keep.source_url, &tok);
+        for v in &mut keep.variants {
+            v.playlist_url = apply_gate_token(&v.playlist_url, &tok);
+        }
+    }
+    let changed = keep.source_url != old_url;
+    (keep, changed)
 }
 
 fn looks_gated_cdn(url: &Url) -> bool {
@@ -216,5 +248,43 @@ mod tests {
         assert!(sibs[0].3);
         assert!(sibs[0].0.as_str().contains("index-a1.m3u8"));
         assert!(sibs[0].0.as_str().contains("gk=tok"));
+    }
+
+    fn media(url: &str) -> crate::media::models::DetectedMedia {
+        let url: Url = url.parse().unwrap();
+        crate::media::models::DetectedMedia {
+            id: uuid::Uuid::new_v4(),
+            source_url: url.clone(),
+            kind: crate::media::models::ManifestKind::Hls,
+            protection: crate::media::models::MediaProtection::None,
+            suggested_title: None,
+            page_url: None,
+            variants: vec![crate::media::models::MediaVariant::new(url)],
+            preferred_variant_id: None,
+            audio_tracks: vec![],
+            subtitle_tracks: vec![],
+            is_vod: true,
+            segment_count: None,
+            duration_seconds: None,
+            content_length: None,
+            observed_at: chrono::Utc::now(),
+        }
+    }
+
+    /// Real vidzy capture order: muxed video without `gk`, then audio-only with `gk`.
+    #[test]
+    fn audio_only_capture_never_replaces_video_but_lends_its_gk() {
+        let base = "https://u14.vidzy.org/hls2/03/00066/,abc_n,.urlset";
+        let video = media(&format!("{base}/index-v1-a1.m3u8?t=x&s=1"));
+        let audio = media(&format!("{base}/index-a1.m3u8?t=x&s=1&gk=v1.tok"));
+        let (keep, changed) = pick_capture(video.clone(), audio.clone());
+        assert!(changed);
+        assert!(keep.source_url.path().ends_with("index-v1-a1.m3u8"));
+        assert_eq!(gate_token(&keep.source_url).as_deref(), Some("v1.tok"));
+        assert_eq!(gate_token(&keep.variants[0].playlist_url).as_deref(), Some("v1.tok"));
+        // Reverse arrival order gives the same result.
+        let (keep, _) = pick_capture(audio, video);
+        assert!(keep.source_url.path().ends_with("index-v1-a1.m3u8"));
+        assert_eq!(gate_token(&keep.source_url).as_deref(), Some("v1.tok"));
     }
 }

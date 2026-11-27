@@ -226,16 +226,20 @@ fn sanitize_extension(ext: &str) -> String {
     }
 }
 
+/// First number in the field, zero-padded: "4", "04", "S4", "saison 4" → "04".
+/// Free text with no digit is kept as typed.
 fn padded_season_episode(value: Option<&str>) -> String {
-    match value {
-        Some(v) if !v.is_empty() => {
-            if let Ok(n) = v.parse::<i32>() {
-                format!("{n:02}")
-            } else {
-                v.to_string()
-            }
-        }
-        _ => String::new(),
+    let Some(v) = value.map(str::trim).filter(|v| !v.is_empty()) else {
+        return String::new();
+    };
+    let digits: String = v
+        .chars()
+        .skip_while(|c| !c.is_ascii_digit())
+        .take_while(char::is_ascii_digit)
+        .collect();
+    match digits.parse::<u32>() {
+        Ok(n) => format!("{n:02}"),
+        Err(_) => v.to_string(),
     }
 }
 
@@ -269,5 +273,12 @@ mod tests {
             ExportNaming::relative_path(ExportNamingPreset::Flat.template(), &ctx),
             "My Film.mp4"
         );
+    }
+
+    #[test]
+    fn season_episode_accept_words_around_the_number() {
+        for (raw, want) in [("4", "04"), ("04", "04"), ("saison 4", "04"), ("S4", "04"), ("E07", "07"), ("pilot", "pilot")] {
+            assert_eq!(padded_season_episode(Some(raw)), want, "{raw}");
+        }
     }
 }

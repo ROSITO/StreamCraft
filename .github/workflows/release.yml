@@ -23,33 +23,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: apps/desktop/package-lock.json
       - name: Linux deps
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-      - name: Fetch FFmpeg
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libxdo-dev
+      # Each package step fetches FFmpeg (SHA-256 verified), bundles it next to the
+      # binaries and fails if the packaged binary can't resolve it on its own.
+      - name: Package macOS app (FFmpeg bundled)
+        if: runner.os == 'macOS'
+        run: ./scripts/package-macos-app.sh dist/craft
+      - name: Package Linux / Windows (FFmpeg bundled)
+        if: runner.os != 'macOS'
         shell: bash
-        run: ./scripts/fetch-ffmpeg.sh || true
-      - name: Build CLI
-        run: cargo build -p streamcraft-cli --release
-      - name: npm ci
-        working-directory: apps/desktop
-        run: npm ci
-      - name: Tauri build
-        working-directory: apps/desktop
-        run: npm run tauri build
+        run: ./scripts/package-craft-release.sh dist/craft
       - name: Upload artifacts
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            target/release/streamcraft*
-            target/release/streamcraft.exe
-            apps/desktop/src-tauri/target/release/bundle/**/*
+            dist/craft/*.zip
+            dist/craft/*.tar.gz
+            dist/craft/streamcraft-macos-*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

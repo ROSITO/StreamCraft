@@ -81,6 +81,11 @@ fn under_root(path: &Path, root: &RootCap) -> Result<PathBuf> {
     if !path.is_absolute() {
         bail!("path must be absolute: {}", path.display());
     }
+    // A not-yet-existing parent is checked lexically below, so `..` could escape
+    // the root (`root/new/../../etc`). Refuse it outright.
+    if path.components().any(|c| c == std::path::Component::ParentDir) {
+        bail!("automation filesystem access is not granted: `..` in {}", path.display());
+    }
     let candidate = if path.exists() {
         std::fs::canonicalize(path)?
     } else if let Some(parent) = path.parent() {
@@ -111,4 +116,18 @@ fn under_root(path: &Path, root: &RootCap) -> Result<PathBuf> {
         "automation filesystem access is not granted: {}",
         path.display()
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dotdot_cannot_escape_write_root() {
+        let root = std::env::temp_dir().join(format!("sc-roots-{}", std::process::id()));
+        let roots = AutomationRoots::open(vec![], root.clone()).unwrap();
+        assert!(roots.ensure_writable(&root.join("film.mp4")).is_ok());
+        assert!(roots.ensure_writable(&root.join("new/../../etc/x")).is_err());
+        let _ = std::fs::remove_dir_all(root);
+    }
 }

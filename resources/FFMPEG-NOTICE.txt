@@ -1,0 +1,31 @@
+FFmpeg — third-party notice
+===========================
+
+StreamCraft ships the ffmpeg and ffprobe programs from the FFmpeg project
+(https://ffmpeg.org) next to its own binaries. StreamCraft starts them as
+separate processes; it does not link to FFmpeg's libraries. StreamCraft itself
+is MIT-licensed; FFmpeg keeps its own license, described below.
+
+Builds used
+-----------
+- macOS:   static builds by Martin Riedl, https://ffmpeg.martin-riedl.de
+           (release channel). These builds include GPL components (x264, x265),
+           so they are distributed under the GNU General Public License,
+           version 2 or later.
+- Linux,
+  Windows: LGPL static builds by BtbN, https://github.com/BtbN/FFmpeg-Builds
+           (ffmpeg-master-latest-*-lgpl), under the GNU Lesser General Public
+           License, version 2.1 or later.
+
+License texts
+-------------
+GPL v2:    https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+LGPL v2.1: https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
+
+Source code
+-----------
+The complete corresponding FFmpeg source code for these builds is available
+from https://ffmpeg.org/download.html and from each build provider above
+(build scripts and source revision per release). On request, the StreamCraft
+maintainers will provide a copy of the exact source used for a given release
+for at least three years after that release.

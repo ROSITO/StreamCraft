@@ -11,7 +11,7 @@ Mémoire projet : décisions figées, contraintes, et pièges.
 | Champ | Valeur |
 |-------|--------|
 | Phase roadmap | **R6 Craft app** (egui + craft-libs + MCP) — Tauri archivé |
-| Code applicatif | Monorepo Rust ; GUI egui `apps/streamcraft` ; CLI/MCP Craft ; Tauri legacy `apps/desktop` ; Swift `archive/swift/` |
+| Code applicatif | Monorepo Rust ; GUI egui `apps/streamcraft` ; CLI/MCP Craft ; Tauri supprimé (dernier état : commit `e68165d`) ; Swift `archive/swift/` |
 | Licence | **MIT** (`LICENSE`, 2026) |
 | Bundle ID | `app.streamcraft.StreamCraft` |
 | Nom produit desktop | **StreamCraft** (crates `streamcraft-*`) |
@@ -148,7 +148,7 @@ La relance manuelle reste disponible ; elle ne doit plus être le chemin nominal
 
 ### D021 — Craft app (egui + craft-libs + MCP)
 **Décision :** StreamCraft devient une **Craft app** pour la prochaine release (v0.3).
-- **UI :** egui / eframe (`apps/streamcraft`, binaire `streamcraft-app`) — **pas** de Tauri / React / TS handwritten. Tauri → `archive/tauri-desktop/`.
+- **UI :** egui / eframe (`apps/streamcraft`, binaire `streamcraft-app`) — **pas** de Tauri / React / TS handwritten. Tauri supprimé (dernier état : commit `e68165d`).
 - **craft-libs :** pin git unique (`CRAFT_LIBS_REV` dans le `Cargo.toml` workspace) ; deps : `craft-ai-core`, `craft-jsonrpc` (+ craft-ui/window au besoin). Pas de dépendance app→app.
 - **Agents :** `streamcraft mcp` (stdio) **refuse** de démarrer sans `--automation-read-root` et `--automation-write-root` ; I/O fichiers hors racines = erreur. Toute feature GUI a un chemin headless CLI/MCP (D018 conservé).
 - **Nommage binaires (départ Craft SHOULD) :** CLI reste **`streamcraft`** (contrat agent D018 / docs) ; GUI = **`streamcraft-app`**. Les apps Craft siblings utilisent souvent `<app>` GUI + `<app>-cli` ; on inverse volontairement pour ne pas casser les agents existants.
@@ -162,11 +162,26 @@ La relance manuelle reste disponible ; elle ne doit plus être le chemin nominal
 **Amendement (2026-11-25, reprise produit) :**
 - Le premier shell egui était un squelette ; **GUI produit reste egui** (`streamcraft-app`) — design ink-studio violet (`theme.rs`).
 - Parité P0 portée depuis la logique Tauri (`apps/desktop/src-tauri`) vers egui+wry : détection HLS/DASH, cookies, feuille download, queue, settings, mux via core.
-- Tauri (`apps/desktop`) = référence legacy / hors chemin critique ; pas de GUI produit.
+- Tauri (`apps/desktop`) supprimé (dernier état : commit `e68165d`), le 2026-11-27 ; pas de GUI produit.
 - Craft agent surface : `streamcraft` CLI + `streamcraft mcp` (rmcp / cap-std).
 
 **Date :** 2026-11-25  
 **Source :** décision produit (session Craft)
+
+### D022 — Fiabilité du pipeline de téléchargement (audit Rust)
+**Décision :**
+- Segments écrits en `<nom>.part` puis renommés : seul un fichier complet porte le nom final. Timeout réseau = inactivité (`read_timeout` 60 s), jamais total.
+- `run_job` laisse toujours un job en erreur à `Failed` ; `Cancelled` est collant (seuls `resume`/`request_assemble` en sortent) et interrompt le téléchargement en cours.
+- GUI : un seul ordonnanceur (`StreamCraftApp::pump`), borné par `max_concurrent_jobs`, jobs pris via `DownloadQueue::claim_next` (atomique). Cookies/referer passés à `enqueue_media` (`JobCredentials`), plus de `set_job_credentials`.
+- Cookie de session envoyé seulement au même hôte ou aux hôtes partageant les deux derniers labels (`planner::cookie_allowed`) ; proxy invalide = téléchargement refusé, jamais de sortie directe silencieuse.
+- DASH : MPD `dynamic` refusé ; MPD avec `ContentProtection` refusé (aucun déchiffrement, cohérent D001).
+- Linux : X11 forcé via `NativeOptions::event_loop_builder` + `with_x11()` (winit ≥ 0.29 ignore `WINIT_UNIX_BACKEND`).
+- `cli_jobs.json` : écriture atomique + `CliJobStore::update` sous verrou fichier.
+- Parité mux Swift : sous-titres HLS (playlist WebVTT) joints en un `.vtt` ; timeline vidéo étirée compactée (`-itsscale` + `atempo`) avant tout recalage ; fenêtre « Ajuster sync » (Queue → Sync…). Le ratio de skew arrondit le fps mesuré au débit standard (24/25/29,97…) : sans ça, ffmpeg annonce ~25,4 fps après compaction et la correction se réappliquait à chaque passage (défaut hérité du Swift).
+- FFmpeg sans action utilisateur : embarqué dans chaque release (`.app` → `Contents/Helpers`, Linux/Windows → `Helpers/` à côté des binaires, `FFMPEG-NOTICE.txt` joint) ; les scripts de packaging échouent si le binaire packagé ne résout pas son ffmpeg seul (bug corrigé : le résolveur ignorait `Contents/Helpers`, l'app publiée dépendait de Homebrew). Filet : installation à la demande (bouton GUI, `streamcraft doctor --install-ffmpeg`, `install.sh`) dans `<data dir>/StreamCraft/ffmpeg/<os-arch>/`, archive vérifiée SHA-256 contre la somme publiée. Sources : Martin Riedl (macOS, GPL probable) ; BtbN **LGPL** (Linux/Windows).
+- Segments HLS renommés en extension média (`.ts`/`.m4s`) : ffmpeg ≥ 7 refuse `.jpg`/`.js`… (`extension_picky`).
+**Date :** 2026-11-27  
+**Source :** audit de code (session Claude Code)
 
 ---
 

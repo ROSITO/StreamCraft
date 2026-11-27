@@ -63,6 +63,14 @@ fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
         viewport,
         persist_window: true,
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "dragonfly",
+            target_os = "freebsd",
+            target_os = "netbsd",
+            target_os = "openbsd"
+        ))]
+        event_loop_builder: linux_webview::x11_event_loop_hook(),
         ..Default::default()
     };
 

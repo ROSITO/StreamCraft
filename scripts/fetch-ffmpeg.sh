@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Fetch static ffmpeg/ffprobe into resources/ffmpeg/{os-arch}/
 # macOS: https://ffmpeg.martin-riedl.de/
-# Linux/Windows: https://github.com/eugeneware/ffmpeg-static style mirrors / BtbN builds
+# Linux/Windows: BtbN FFmpeg-Builds, LGPL static builds
+# Every archive is checked against the publisher's SHA-256 before use
+# (same sources and checks as the in-app installer, streamcraft-ffmpeg/src/install.rs).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
@@ -41,15 +43,45 @@ fi
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
+sha256_of() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1
+  else shasum -a 256 "$1" | cut -d' ' -f1; fi
+}
+
+# verify FILE EXPECTED_HEX
+verify() {
+  local actual expected
+  actual="$(sha256_of "$1")"
+  expected="$(echo "$2" | tr '[:upper:]' '[:lower:]')"
+  if [[ -z "$expected" || "$actual" != "$expected" ]]; then
+    echo "checksum mismatch for $1 (expected '${expected}', got '${actual}')" >&2
+    exit 1
+  fi
+  echo "  ✓ sha256 $(basename "$1")"
+}
+
+BTBN="https://github.com/BtbN/FFmpeg-Builds/releases/download/latest"
+# fetch_btbn ASSET → downloads and verifies $TMP/ASSET against checksums.sha256
+fetch_btbn() {
+  local asset="$1"
+  echo "→ $BTBN/$asset"
+  curl -fL --progress-bar -o "$TMP/$asset" "$BTBN/$asset"
+  curl -fsSL -o "$TMP/checksums.sha256" "$BTBN/checksums.sha256"
+  verify "$TMP/$asset" "$(awk -v f="$asset" '$2 == f || $2 == "*" f {print $1}' "$TMP/checksums.sha256")"
+}
+
 fetch_macos() {
   local base="https://ffmpeg.martin-riedl.de/redirect/latest/macos"
   local channel="release"
   local arch_src
-  if [[ "$ARCH" == "aarch64" ]]; then arch_src=arm64; else arch_src=x86_64; fi
+  if [[ "$ARCH" == "aarch64" ]]; then arch_src=arm64; else arch_src=amd64; fi
   for name in ffmpeg ffprobe; do
     local url="$base/$arch_src/$channel/${name}.zip"
     echo "→ $url"
-    curl -fL --progress-bar -o "$TMP/${name}.zip" "$url"
+    # Follow the "latest" redirect to the pinned release, whose .sha256 sits next to it.
+    local final
+    final="$(curl -fsSL -o "$TMP/${name}.zip" -w '%{url_effective}' "$url")"
+    verify "$TMP/${name}.zip" "$(curl -fsSL "${final}.sha256" | awk '{print $1}')"
     mkdir -p "$TMP/${name}"
     ditto -x -k "$TMP/${name}.zip" "$TMP/${name}"
     local found
@@ -61,14 +93,12 @@ fetch_macos() {
 }
 
 fetch_linux() {
-  # BtbN shared builds (GPL/LGPL) — linux64 essentials
-  local url="https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz"
+  local asset="ffmpeg-master-latest-linux64-lgpl.tar.xz"
   if [[ "$ARCH" == "aarch64" ]]; then
-    url="https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linuxarm64-gpl.tar.xz"
+    asset="ffmpeg-master-latest-linuxarm64-lgpl.tar.xz"
   fi
-  echo "→ $url"
-  curl -fL --progress-bar -o "$TMP/ffmpeg.tar.xz" "$url"
-  tar -xJf "$TMP/ffmpeg.tar.xz" -C "$TMP"
+  fetch_btbn "$asset"
+  tar -xJf "$TMP/$asset" -C "$TMP"
   local found_ffmpeg found_ffprobe
   found_ffmpeg="$(find "$TMP" -type f -name ffmpeg | head -n 1)"
   found_ffprobe="$(find "$TMP" -type f -name ffprobe | head -n 1)"
@@ -78,11 +108,10 @@ fetch_linux() {
 }
 
 fetch_windows() {
-  local url="https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
-  echo "→ $url"
-  curl -fL --progress-bar -o "$TMP/ffmpeg.zip" "$url"
+  local asset="ffmpeg-master-latest-win64-lgpl.zip"
+  fetch_btbn "$asset"
   mkdir -p "$TMP/win"
-  unzip -q "$TMP/ffmpeg.zip" -d "$TMP/win"
+  unzip -q "$TMP/$asset" -d "$TMP/win"
   local found_ffmpeg found_ffprobe
   found_ffmpeg="$(find "$TMP/win" -type f -name ffmpeg.exe | head -n 1)"
   found_ffprobe="$(find "$TMP/win" -type f -name ffprobe.exe | head -n 1)"

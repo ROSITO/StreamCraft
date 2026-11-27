@@ -82,6 +82,14 @@ impl StreamcraftMcp {
     }
 }
 
+/// Agent-supplied positionals must not be parsed as CLI flags (`--out=/elsewhere`).
+fn positional(s: String) -> Result<String, McpError> {
+    if s.starts_with('-') {
+        return Err(McpError::invalid_params(format!("argument must not start with '-': {s}"), None));
+    }
+    Ok(s)
+}
+
 fn ok_json(v: Value) -> Result<CallToolResult, McpError> {
     Ok(CallToolResult::success(vec![ContentBlock::text(v.to_string())]))
 }
@@ -185,7 +193,7 @@ impl StreamcraftMcp {
                 .map_err(|e| McpError::invalid_params(e.to_string(), None))?,
             None => self.roots.write_root().to_path_buf(),
         };
-        let mut argv = vec!["download".into(), p.url, "--out".into(), out.display().to_string()];
+        let mut argv = vec!["download".into(), positional(p.url)?, "--out".into(), out.display().to_string()];
         if let Some(t) = p.title {
             argv.push("--title".into());
             argv.push(t);
@@ -199,7 +207,7 @@ impl StreamcraftMcp {
         annotations(read_only_hint = false, destructive_hint = true, idempotent_hint = false, open_world_hint = true)
     )]
     async fn fetch(&self, Parameters(p): Parameters<FetchParams>) -> Result<CallToolResult, McpError> {
-        let mut argv = vec!["fetch".into(), p.page_url];
+        let mut argv = vec!["fetch".into(), positional(p.page_url)?];
         if p.detect_only.unwrap_or(false) {
             argv.push("--detect-only".into());
         }
@@ -219,7 +227,7 @@ impl StreamcraftMcp {
         annotations(read_only_hint = false, destructive_hint = true, idempotent_hint = false, open_world_hint = true)
     )]
     async fn season(&self, Parameters(p): Parameters<SeasonParams>) -> Result<CallToolResult, McpError> {
-        let mut argv = vec!["season".into(), p.show_or_url];
+        let mut argv = vec!["season".into(), positional(p.show_or_url)?];
         if let Some(s) = p.season {
             argv.push("--season".into());
             argv.push(s.to_string());
@@ -272,7 +280,7 @@ impl StreamcraftMcp {
     async fn status(&self, Parameters(p): Parameters<StatusParams>) -> Result<CallToolResult, McpError> {
         let mut argv = vec!["status".into()];
         if let Some(id) = p.job_id {
-            argv.push(id);
+            argv.push(positional(id)?);
         }
         ok_json(self.run_cli(&argv).await?)
     }
@@ -292,7 +300,7 @@ impl StreamcraftMcp {
         annotations(read_only_hint = true, destructive_hint = false, idempotent_hint = true, open_world_hint = false)
     )]
     async fn wait(&self, Parameters(p): Parameters<WaitParams>) -> Result<CallToolResult, McpError> {
-        let mut argv = vec!["wait".into(), p.job_id];
+        let mut argv = vec!["wait".into(), positional(p.job_id)?];
         if let Some(t) = p.timeout {
             argv.push("--timeout".into());
             argv.push(t.to_string());
@@ -306,7 +314,7 @@ impl StreamcraftMcp {
         annotations(read_only_hint = false, destructive_hint = true, idempotent_hint = false, open_world_hint = false)
     )]
     async fn cancel(&self, Parameters(p): Parameters<CancelParams>) -> Result<CallToolResult, McpError> {
-        ok_json(self.run_cli(&["cancel".into(), p.job_id]).await?)
+        ok_json(self.run_cli(&["cancel".into(), positional(p.job_id)?]).await?)
     }
 }
 

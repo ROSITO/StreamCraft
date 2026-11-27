@@ -69,9 +69,6 @@ config/mcporter.json
 # Rust / Tauri
 /target/
 **/target/
-apps/desktop/dist/
-apps/desktop/node_modules/
-apps/desktop/src-tauri/target/
 
 # FFmpeg sidecars
 resources/ffmpeg/

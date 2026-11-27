@@ -10,7 +10,7 @@ Instructions permanentes pour tout agent (Cursor, Claude Code, Codex) travaillan
 
 - Stack : **Rust 2024**, egui/eframe (Craft), wry browser, Tokio, reqwest, rusqlite, FFmpeg sidecar, craft-libs (`craft-ai-core`)
 - CLI headless + MCP : binaire **`streamcraft`** (crate `streamcraft-cli`) ; GUI **`streamcraft-app`**
-- Legacy : Swift `archive/swift/` ; Tauri `archive/tauri-desktop/`
+- Legacy : Swift `archive/swift/` ; Tauri supprimé (dernier état : commit `e68165d`)
 - Licence : **MIT** (`LICENSE`)
 
 Documents de référence (lire dans cet ordre) :

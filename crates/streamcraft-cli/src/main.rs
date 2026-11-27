@@ -16,7 +16,7 @@ use streamcraft_core::agent::flix::{
 use streamcraft_core::agent::scrape::PageScraper;
 use streamcraft_core::agent::season::enumerate_from_html;
 use streamcraft_core::agent::via_app::{request as via_app_request, ViaAppRequest, ViaAppResponse};
-use streamcraft_core::download::service::DownloadService;
+use streamcraft_core::download::service::{DownloadService, JobCredentials};
 use streamcraft_core::media::detector::MediaDetector;
 use streamcraft_core::media::hls::HLSParser;
 use streamcraft_core::media::models::{MediaClassification, MediaProtection, NetworkMediaCandidate};
@@ -100,7 +100,11 @@ enum Commands {
     Cancel {
         job_id: String,
     },
-    Doctor,
+    Doctor {
+        /// If FFmpeg is missing, download it (checksum-verified) into the user data dir.
+        #[arg(long)]
+        install_ffmpeg: bool,
+    },
     /// Ping GUI via-app bridge
     Ping,
     /// Ask GUI to navigate (via-app Open) or print inbox hint
@@ -228,7 +232,27 @@ fn resolve_cookie(header: Option<String>, file: Option<&PathBuf>) -> Option<Stri
 async fn run(cli: Cli, opts: &SessionOpts) -> Result<ExitCode> {
     let mut prefs = AppPreferences::load();
     match cli.command {
-        Commands::Doctor => match FFmpegPaths::resolve() {
+        Commands::Doctor { install_ffmpeg } => match FFmpegPaths::resolve() {
+            Err(_) if install_ffmpeg => {
+                let progress = |m: &str| {
+                    AgentEvent::Log { level: "info".into(), message: m.into() }.emit()
+                };
+                match streamcraft_ffmpeg::install::install(progress).await {
+                    Ok(p) => {
+                        AgentEvent::Log {
+                            level: "info".into(),
+                            message: format!("ffmpeg={} source={}", p.ffmpeg.display(), p.source),
+                        }
+                        .emit();
+                        Ok(ExitCode::Ok)
+                    }
+                    Err(e) => {
+                        AgentEvent::Failed { job_id: None, message: format!("FFmpeg install failed: {e}") }
+                            .emit();
+                        Ok(ExitCode::Ffmpeg)
+                    }
+                }
+            }
             Ok(p) => {
                 AgentEvent::Log {
                     level: "info".into(),
@@ -240,7 +264,7 @@ async fn run(cli: Cli, opts: &SessionOpts) -> Result<ExitCode> {
             Err(_) => {
                 AgentEvent::Failed {
                     job_id: None,
-                    message: "ffmpeg not found — run ./scripts/fetch-ffmpeg.sh".into(),
+                    message: "ffmpeg not found — run `streamcraft doctor --install-ffmpeg`".into(),
                 }
                 .emit();
                 Ok(ExitCode::Ffmpeg)
@@ -437,9 +461,7 @@ async fn run(cli: Cli, opts: &SessionOpts) -> Result<ExitCode> {
         }
         Commands::Cancel { job_id } => {
             let uuid = Uuid::parse_str(&job_id)?;
-            let mut store = CliJobStore::load();
-            let ok = store.request_cancel(uuid);
-            let _ = store.save();
+            let ok = CliJobStore::update(|s| s.request_cancel(uuid)).unwrap_or(false);
             AgentEvent::Log {
                 level: "info".into(),
                 message: if ok {
@@ -1072,22 +1094,22 @@ async fn download_url(
     let now = Utc::now();
     let service = DownloadService::new(prefs.clone());
     let job_id = service
-        .enqueue_media(media.clone(), None, None, None, None)
+        .enqueue_media(
+            media.clone(),
+            None,
+            None,
+            None,
+            None,
+            JobCredentials {
+                cookie_header: opts.cookie.clone(),
+                referer: opts.referer.clone(),
+            },
+        )
         .await
         .map_err(|e| anyhow::anyhow!(e))?;
-    service
-        .set_job_credentials(
-            job_id,
-            opts.cookie.clone(),
-            opts.referer
-                .clone()
-                .or_else(|| media.page_url.as_ref().map(|u| u.to_string())),
-        )
-        .await;
 
     {
-        let mut store = CliJobStore::load();
-        store.upsert(CliJobRecord {
+        let _ = CliJobStore::update(|store| store.upsert(CliJobRecord {
             id: job_id,
             title: job_title.clone(),
             source_url: url.to_string(),
@@ -1098,8 +1120,7 @@ async fn download_url(
             created_at: now,
             updated_at: now,
             cancel_requested: false,
-        });
-        let _ = store.save();
+        }));
     }
 
     AgentEvent::Progress {
@@ -1128,14 +1149,14 @@ async fn download_url(
 
     match result {
         Ok(path) => {
-            let mut store = CliJobStore::load();
-            if let Some(j) = store.get_mut(job_id) {
-                j.state = "completed".into();
-                j.progress = 1.0;
-                j.destination = Some(path.display().to_string());
-                j.updated_at = Utc::now();
-            }
-            let _ = store.save();
+            let _ = CliJobStore::update(|store| {
+                if let Some(j) = store.get_mut(job_id) {
+                    j.state = "completed".into();
+                    j.progress = 1.0;
+                    j.destination = Some(path.display().to_string());
+                    j.updated_at = Utc::now();
+                }
+            });
             AgentEvent::Completed {
                 job_id: job_id.to_string(),
                 path: path.display().to_string(),
@@ -1145,13 +1166,14 @@ async fn download_url(
         }
         Err(e) => {
             let cancelled = CliJobStore::is_cancel_requested(job_id) || e.contains("cancel");
-            let mut store = CliJobStore::load();
-            if let Some(j) = store.get_mut(job_id) {
-                j.state = if cancelled { "cancelled" } else { "failed" }.into();
-                j.error_message = Some(e.clone());
-                j.updated_at = Utc::now();
-            }
-            let _ = store.save();
+            let drm = e.contains("DRM");
+            let _ = CliJobStore::update(|store| {
+                if let Some(j) = store.get_mut(job_id) {
+                    j.state = if cancelled { "cancelled" } else { "failed" }.into();
+                    j.error_message = Some(e.clone());
+                    j.updated_at = Utc::now();
+                }
+            });
             AgentEvent::Failed {
                 job_id: Some(job_id.to_string()),
                 message: e,
@@ -1159,6 +1181,9 @@ async fn download_url(
             .emit();
             Ok(if cancelled {
                 ExitCode::Cancelled
+            } else if drm {
+                // Refusal found at manifest time (e.g. DASH ContentProtection).
+                ExitCode::Drm
             } else {
                 ExitCode::Network
             })

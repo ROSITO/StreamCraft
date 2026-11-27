@@ -37,6 +37,8 @@ open = "5"
 # No secrets. User: "browser failed : the window handle kind is not supported" (CachyOS)
 [target.'cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))'.dependencies]
 gtk = "0.18"
+# Same winit as eframe 0.37 (0.30.x): needed for EventLoopBuilderExtX11::with_x11.
+winit = { version = "0.30", default-features = false, features = ["x11"] }
 
 # Parité Swift/Tauri NetworkObserver — WKScriptMessageHandler all-frames (D008)
 [target.'cfg(target_os = "macos")'.dependencies]

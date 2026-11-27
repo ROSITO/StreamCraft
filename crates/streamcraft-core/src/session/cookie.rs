@@ -1,6 +1,6 @@
 //! CookieBridge snapshot — port Swift `SessionCredentialSnapshot`.
 //!
-//! `apps/desktop/src-tauri/src/lib.rs` cookie_refresh + start_download.
+//! Origin: Tauri `cookie_refresh` + `start_download` (removed, see commit `e68165d`).
 
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -71,9 +71,8 @@ fn cookie_matches(cookie: &CookieEntry, url: &Url) -> bool {
         .to_lowercase()
         .trim_start_matches('.')
         .to_string();
-    let host_ok = host == domain
-        || host.ends_with(&format!(".{domain}"))
-        || host.ends_with(&cookie.domain.to_lowercase());
+    // Dot boundary required: `example.com` must not match `evilexample.com`.
+    let host_ok = host == domain || host.ends_with(&format!(".{domain}"));
     if !host_ok {
         return false;
     }
@@ -101,5 +100,7 @@ mod tests {
         };
         let u = Url::parse("https://cdn.example.com/a.ts").unwrap();
         assert_eq!(snap.cookie_header_for(&u).as_deref(), Some("sid=1"));
+        let evil = Url::parse("https://evilexample.com/a.ts").unwrap();
+        assert_eq!(snap.cookie_header_for(&evil), None);
     }
 }

@@ -50,11 +50,13 @@ rm -rf "$DEST"
 ditto "$APP" "$DEST"
 xattr -cr "$DEST" 2>/dev/null || true
 
-if [[ -x "$DEST/Contents/Resources/Helpers/ffmpeg" ]]; then
-  echo "→ FFmpeg embarqué : OK"
-  "$DEST/Contents/Resources/Helpers/ffmpeg" -version 2>&1 | head -1 || true
+# Vérification : FFmpeg embarqué (Contents/Helpers), sinon installation vérifiée (SHA-256).
+if "$DEST/Contents/MacOS/streamcraft" doctor --json 2>/dev/null | grep -q '"type":"log"'; then
+  echo "→ FFmpeg : OK"
 else
-  echo "⚠ FFmpeg embarqué absent dans cette release — assemblage impossible jusqu’à mise à jour." >&2
+  echo "→ FFmpeg absent de cette release : installation…"
+  "$DEST/Contents/MacOS/streamcraft" doctor --install-ffmpeg --json \
+    || echo "⚠ Installation FFmpeg échouée — l’app proposera de réessayer." >&2
 fi
 
 echo "StreamCraft est dans Applications. Vous pouvez lancer :"

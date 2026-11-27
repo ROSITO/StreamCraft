@@ -21,4 +21,4 @@ pub use agent::catalog::{extract_news_id, fetch_series_catalog, resolve_embed_st
 pub use agent::popup_guard::PopupGuard;
 pub use agent::events::{AgentEvent, ExitCode};
 pub use download::queue::DownloadQueue;
-pub use download::service::DownloadService;
+pub use download::service::{DownloadService, JobCredentials};

@@ -6,7 +6,7 @@ use streamcraft_ffmpeg::FFmpegPaths;
 use thiserror::Error;
 use tracing::debug;
 
-use crate::download::planner::DownloadPlan;
+use crate::download::planner::{DownloadPlan, DownloadUnit};
 use crate::media::models::ManifestKind;
 
 #[derive(Debug, Error)]
@@ -33,7 +33,10 @@ pub async fn assemble(
         ManifestKind::Progressive => {
             let src = parts_dir.join(&plan.units[0].file_name);
             if plan.units[0].file_name.ends_with(".mp4") {
-                tokio::fs::copy(&src, output).await?;
+                // Same filesystem: move; otherwise (e.g. export dir on another volume) copy.
+                if tokio::fs::rename(&src, output).await.is_err() {
+                    tokio::fs::copy(&src, output).await?;
+                }
                 return Ok(());
             }
             let args = vec![
@@ -79,33 +82,58 @@ pub async fn assemble(
             }
         }
         ManifestKind::Dash => {
-            let concat = parts_dir.join("dash_concat.mp4");
-            {
-                use tokio::io::AsyncWriteExt;
-                let mut out = tokio::fs::File::create(&concat).await?;
-                let mut files: Vec<_> = plan.units.clone();
-                files.sort_by_key(|u| u.index);
-                for u in files {
-                    let data = tokio::fs::read(parts_dir.join(&u.file_name)).await?;
-                    out.write_all(&data).await?;
-                }
-                out.flush().await?;
-            }
-            let args = vec![
+            // init + segments concatenated per track; audio units are under `audio/`.
+            let (audio, video): (Vec<_>, Vec<_>) = plan
+                .units
+                .iter()
+                .partition(|u| u.file_name.starts_with("audio/"));
+            let video_file = parts_dir.join("dash_video.mp4");
+            concat_units(parts_dir, video, &video_file).await?;
+            let mut args: Vec<String> = vec![
                 "-y".into(),
                 "-copyts".into(),
                 "-i".into(),
-                concat.to_string_lossy().to_string(),
+                video_file.to_string_lossy().to_string(),
+            ];
+            if !audio.is_empty() {
+                let audio_file = parts_dir.join("dash_audio.mp4");
+                concat_units(parts_dir, audio, &audio_file).await?;
+                args.extend([
+                    "-i".into(),
+                    audio_file.to_string_lossy().to_string(),
+                    "-map".into(),
+                    "0:v:0".into(),
+                    "-map".into(),
+                    "1:a:0".into(),
+                ]);
+            }
+            args.extend([
                 "-c".into(),
                 "copy".into(),
                 "-start_at_zero".into(),
                 "-movflags".into(),
                 "+faststart".into(),
                 output.to_string_lossy().to_string(),
-            ];
+            ]);
             ffmpeg.run_ffmpeg(&args).await?;
         }
     }
+    Ok(())
+}
+
+async fn concat_units(
+    parts_dir: &Path,
+    mut units: Vec<&DownloadUnit>,
+    dest: &Path,
+) -> Result<(), AssembleError> {
+    use tokio::io::AsyncWriteExt;
+    units.sort_by_key(|u| u.index);
+    let mut out = tokio::fs::File::create(dest).await?;
+    for u in units {
+        let mut part = tokio::fs::File::open(parts_dir.join(&u.file_name)).await?;
+        tokio::io::copy(&mut part, &mut out).await?;
+    }
+    out.flush().await?;
     Ok(())
 }
 
@@ -211,9 +239,7 @@ pub async fn assemble_demuxed_hls(
     ];
     debug!(?args, "demuxed hls remux");
     if let Err(e) = ffmpeg.run_ffmpeg(&args).await {
-        let mut args2 = args.clone();
-        args2.retain(|a| a != "aac_adtstoasc" && a != "-bsf:a");
-        // rebuild without bsf - simpler fallback
+        // simpler fallback without bsf
         let args2 = vec![
             "-y".into(),
             "-allowed_extensions".into(),

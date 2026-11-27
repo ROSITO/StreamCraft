@@ -65,7 +65,8 @@ impl DASHParser {
             .and_then(|d| parse_duration(&d));
 
         let mut base = manifest_url.clone();
-        if let Some(bu) = extract_inner_text(trimmed, "BaseURL") {
+        // Only a BaseURL before the first AdaptationSet is MPD/Period-level.
+        if let Some(bu) = extract_inner_text(head_before(trimmed, "<AdaptationSet"), "BaseURL") {
             if let Ok(resolved) = resolve_uri(&bu, &base) {
                 base = resolved;
             }
@@ -85,7 +86,9 @@ impl DASHParser {
             let label = find_tag_attr(&adaptation, "AdaptationSet", "label")
                 .or_else(|| extract_inner_text(&adaptation, "Label"));
 
-            let adaptation_base = if let Some(bu) = extract_inner_text(&adaptation, "BaseURL") {
+            let adaptation_base = if let Some(bu) =
+                extract_inner_text(head_before(&adaptation, "<Representation"), "BaseURL")
+            {
                 resolve_uri(&bu, &base).unwrap_or(base.clone())
             } else {
                 base.clone()
@@ -197,13 +200,10 @@ fn resolve_segments(
             bandwidth,
         );
     }
-    if let Some(bu) = extract_inner_text(representation, "BaseURL")
-        .or_else(|| extract_inner_text(adaptation, "BaseURL"))
-    {
-        let url = resolve_uri(&bu, base_url)
-            .map_err(|e| DASHParserError::Message(e))?;
+    // `base_url` already has the Representation/AdaptationSet BaseURL applied.
+    if representation.contains("<BaseURL") || adaptation.contains("<BaseURL") {
         return Ok(vec![DASHSegmentRef {
-            url,
+            url: base_url.clone(),
             is_initialization: false,
         }]);
     }
@@ -270,6 +270,40 @@ fn parse_segment_template(
         return Ok(segments);
     };
 
+    if let Some(timeline) = first_block(template, "SegmentTimeline") {
+        let total = period_duration.map(|p| (p * timescale) as i64);
+        let (mut time, mut number) = (0i64, start_number);
+        for (i, _) in timeline.match_indices("<S ") {
+            let Some(end) = timeline[i..].find('>') else { break };
+            let s = &timeline[i..=i + end];
+            let Some(d) = extract_attr(s, "d").and_then(|v| v.parse::<i64>().ok()) else {
+                continue;
+            };
+            if let Some(t) = extract_attr(s, "t").and_then(|v| v.parse().ok()) {
+                time = t;
+            }
+            let mut r: i64 = extract_attr(s, "r").and_then(|v| v.parse().ok()).unwrap_or(0);
+            if r < 0 {
+                // r=-1: repeat until the end of the Period.
+                r = match total {
+                    Some(tot) if d > 0 => (tot - time + d - 1) / d - 1,
+                    _ => 0,
+                }
+                .max(0);
+            }
+            for _ in 0..=r {
+                let path = expand_template(&media_template, number, representation_id, bandwidth, time);
+                segments.push(DASHSegmentRef {
+                    url: resolve_uri(&path, base_url).map_err(DASHParserError::Message)?,
+                    is_initialization: false,
+                });
+                time += d;
+                number += 1;
+            }
+        }
+        return Ok(segments);
+    }
+
     if let (Some(duration_attr), Some(period_duration)) = (duration_attr, period_duration) {
         if duration_attr > 0.0 && period_duration > 0.0 && timescale > 0.0 {
             let segment_duration_seconds = duration_attr / timescale;
@@ -311,10 +345,26 @@ fn expand_template(
     let mut result = template.replace("$$", placeholder);
     result = result.replace("$RepresentationID$", representation_id);
     result = result.replace("$Bandwidth$", bandwidth);
-    result = result.replace("$Number%05d$", &format!("{number:05}"));
-    result = result.replace("$Number$", &number.to_string());
-    result = result.replace("$Time$", &time.to_string());
+    result = expand_number(&result, "Number", number);
+    result = expand_number(&result, "Time", time);
     result.replace(placeholder, "$")
+}
+
+/// `$Name$` and `$Name%0<width>d$`.
+fn expand_number(s: &str, name: &str, value: i64) -> String {
+    let mut out = s.replace(&format!("${name}$"), &value.to_string());
+    let open = format!("${name}%0");
+    while let Some(i) = out.find(&open) {
+        let rest = &out[i + open.len()..];
+        let Some(end) = rest.find("d$") else { break };
+        let width: usize = rest[..end].parse().unwrap_or(1);
+        out.replace_range(i..i + open.len() + end + 2, &format!("{value:0width$}"));
+    }
+    out
+}
+
+fn head_before<'a>(doc: &'a str, marker: &str) -> &'a str {
+    doc.find(marker).map_or(doc, |i| &doc[..i])
 }
 
 fn resolve_uri(raw: &str, base: &Url) -> Result<Url, String> {
@@ -433,6 +483,26 @@ mod tests {
         assert!(segs.iter().any(|s| s.is_initialization));
         assert!(segs.len() >= 2);
         assert!(segs[0].url.as_str().contains("init-v1.mp4"));
+    }
+
+    #[test]
+    fn segment_list_base_urls_are_scoped() {
+        let xml = fixture("dash/segmentlist.mpd");
+        let url = Url::parse("https://cdn.example.com/dash/manifest.mpd").unwrap();
+        let m = DASHParser::parse(&xml, &url).unwrap();
+        assert_eq!(
+            m.video_representations[0].segments[0].url.as_str(),
+            "https://cdn.example.com/dash/video/init.mp4"
+        );
+        assert_eq!(
+            m.audio_representations[0].segments[0].url.as_str(),
+            "https://cdn.example.com/dash/audio/fr.mp4"
+        );
+    }
+
+    #[test]
+    fn expands_padded_number_and_time() {
+        assert_eq!(expand_template("s-$Number%03d$-$Time$.m4s", 7, "v", "1", 90), "s-007-90.m4s");
     }
 
     #[test]

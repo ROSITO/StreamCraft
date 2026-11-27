@@ -144,7 +144,6 @@ apps/streamcraft/             # Craft GUI (egui + wry) → streamcraft-app
 docs/cli.md
 fixtures/
 archive/swift/                # legacy Swift MVP
-archive/tauri-desktop/        # legacy Tauri + React shell
 ```
 
 ## Licence

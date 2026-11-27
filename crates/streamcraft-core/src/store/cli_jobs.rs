@@ -48,6 +48,7 @@ impl CliJobStore {
         self.save_to(&Self::path())
     }
 
+    /// Atomic write (tmp + rename): concurrent readers never see a half-written file.
     pub fn save_to(&self, path: &Path) -> std::io::Result<()> {
         if let Some(p) = path.parent() {
             std::fs::create_dir_all(p)?;
@@ -57,7 +58,33 @@ impl CliJobStore {
         if clone.jobs.len() > 200 {
             clone.jobs.truncate(200);
         }
-        std::fs::write(path, serde_json::to_string_pretty(&clone).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?)
+        let body = serde_json::to_string_pretty(&clone)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        let tmp = path.with_extension(format!("json.{}.tmp", std::process::id()));
+        std::fs::write(&tmp, body)?;
+        std::fs::rename(&tmp, path)
+    }
+
+    /// Load → mutate → save under an exclusive file lock, so parallel CLI
+    /// processes (agents) don't overwrite each other's changes.
+    pub fn update<R>(f: impl FnOnce(&mut Self) -> R) -> std::io::Result<R> {
+        Self::update_at(&Self::path(), f)
+    }
+
+    pub fn update_at<R>(path: &Path, f: impl FnOnce(&mut Self) -> R) -> std::io::Result<R> {
+        if let Some(p) = path.parent() {
+            std::fs::create_dir_all(p)?;
+        }
+        let lock = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(path.with_extension("lock"))?;
+        lock.lock()?; // released when `lock` drops
+        let mut store = Self::load_from(path);
+        let out = f(&mut store);
+        store.save_to(path)?;
+        Ok(out)
     }
 
     pub fn upsert(&mut self, job: CliJobRecord) {
@@ -93,5 +120,45 @@ impl CliJobStore {
             .get(id)
             .map(|j| j.cancel_requested || j.state == "cancelled")
             .unwrap_or(false)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn record(id: Uuid) -> CliJobRecord {
+        let now = Utc::now();
+        CliJobRecord {
+            id,
+            title: "t".into(),
+            source_url: "https://example.com/a.m3u8".into(),
+            state: "downloading".into(),
+            progress: 0.0,
+            destination: None,
+            error_message: None,
+            created_at: now,
+            updated_at: now,
+            cancel_requested: false,
+        }
+    }
+
+    #[test]
+    fn parallel_updates_are_not_lost() {
+        let dir = std::env::temp_dir().join(format!("sc-clijobs-{}", Uuid::new_v4()));
+        let path = dir.join("cli_jobs.json");
+        let handles: Vec<_> = (0..16)
+            .map(|_| {
+                let path = path.clone();
+                std::thread::spawn(move || {
+                    CliJobStore::update_at(&path, |s| s.upsert(record(Uuid::new_v4()))).unwrap();
+                })
+            })
+            .collect();
+        for h in handles {
+            h.join().unwrap();
+        }
+        assert_eq!(CliJobStore::load_from(&path).jobs.len(), 16);
+        let _ = std::fs::remove_dir_all(dir);
     }
 }
