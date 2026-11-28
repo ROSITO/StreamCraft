@@ -32,6 +32,13 @@ pub fn prepare_host() {
         // is set; this must run before gtk::init opens the display.
         if force_x11() {
             gtk::gdk::set_allowed_backends("x11");
+            // WebKit's DMA-BUF renderer fails to allocate GBM buffers on some GPUs
+            // (NVIDIA under XWayland: "Failed to create GBM buffer"), leaving the
+            // page blank. The user can still set the variable to 0.
+            if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
+                // SAFETY: called at the top of main, before any other thread exists.
+                unsafe { std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1") };
+            }
         }
         if let Err(e) = gtk::init() {
             tracing::error!("gtk::init failed — WebView will not work: {e}");
@@ -39,6 +46,26 @@ pub fn prepare_host() {
             tracing::debug!("gtk::init ok");
         }
     });
+}
+
+/// winit's Xlib error handler is process-wide: X errors raised on GTK/WebKit's own
+/// X connections land in winit's `latest_error`, and winit's next checked call
+/// panics on them (CachyOS 0.4.1: "Failed to focus input context: GLXBadWindow").
+/// Errors from any display other than winit's are marked handled, so winit only
+/// reacts to its own. Call once the event loop exists (app creation).
+pub fn isolate_x_errors(cc: &eframe::CreationContext<'_>) {
+    use raw_window_handle::{HasDisplayHandle, RawDisplayHandle};
+    let Ok(handle) = cc.display_handle() else { return };
+    let RawDisplayHandle::Xlib(xlib) = handle.as_raw() else { return };
+    let Some(ours) = xlib.display else { return };
+    let ours = ours.as_ptr() as usize;
+    winit::platform::x11::register_xlib_error_hook(Box::new(move |display, _event| {
+        let foreign = display as usize != ours;
+        if foreign {
+            tracing::debug!("ignored X error from a GTK/WebKit X connection");
+        }
+        foreign
+    }));
 }
 
 /// X11 for both winit and GTK unless `WINIT_UNIX_BACKEND=wayland`.

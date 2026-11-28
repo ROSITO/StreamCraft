@@ -78,6 +78,14 @@ fn main() -> eframe::Result {
         "StreamCraft",
         options,
         Box::new(|cc| {
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "dragonfly",
+                target_os = "freebsd",
+                target_os = "netbsd",
+                target_os = "openbsd"
+            ))]
+            linux_webview::isolate_x_errors(cc);
             theme::install(&cc.egui_ctx);
             Ok(Box::new(app::StreamCraftApp::new(cc)))
         }),
