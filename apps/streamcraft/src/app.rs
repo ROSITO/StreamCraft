@@ -788,7 +788,11 @@ impl eframe::App for StreamCraftApp {
 
         if let Some(rect) = browser_rect {
             if rect.width() > 32.0 && rect.height() > 32.0 {
-                self.sync_browser_surface(frame, rect, show_browser);
+                // wry gets physical pixels: X11 child webviews apply logical sizes
+                // as pixels (only GTK's integer scale is divided out), so a 1.33
+                // desktop scale left the webview at 75 % size and offset.
+                let ppp = ui.ctx().pixels_per_point();
+                self.sync_browser_surface(frame, rect * ppp, show_browser);
             }
         } else {
             self.sync_browser_surface(

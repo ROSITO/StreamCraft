@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 use raw_window_handle::HasWindowHandle;
 use streamcraft_core::agent::popup_guard::PopupGuard;
 use streamcraft_core::session::{CookieEntry, SessionCredentialSnapshot};
-use wry::dpi::{LogicalPosition, LogicalSize};
+use wry::dpi::{PhysicalPosition, PhysicalSize};
 use wry::{Rect, WebView, WebViewBuilder};
 
 #[cfg(target_os = "macos")]
@@ -394,9 +394,10 @@ impl EmbeddedBrowser {
     }
 }
 
+/// `rect` is in physical pixels (egui points × pixels_per_point).
 fn egui_to_wry_rect(rect: egui::Rect) -> Rect {
     Rect {
-        position: LogicalPosition::new(rect.min.x as f64, rect.min.y as f64).into(),
-        size: LogicalSize::new(rect.width() as f64, rect.height() as f64).into(),
+        position: PhysicalPosition::new(rect.min.x.round() as i32, rect.min.y.round() as i32).into(),
+        size: PhysicalSize::new(rect.width().round() as u32, rect.height().round() as u32).into(),
     }
 }

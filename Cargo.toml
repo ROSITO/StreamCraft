@@ -15,8 +15,8 @@ default-members = [
 
 [workspace.package]
 # Workspace version → streamcraft-app / CLI binaries (cargo). No secrets.
-# 0.4.2: Linux crash 1 s after launch (WebKit X errors caught by winit).
-version = "0.4.2"
+# 0.4.3: in-app browser bounds in physical pixels (offset/small webview on scaled Linux desktops).
+version = "0.4.3"
 edition = "2024"
 license = "MIT"
 authors = ["StreamCraft contributors"]
