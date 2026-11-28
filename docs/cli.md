@@ -62,7 +62,24 @@ streamcraft --help
 
 ### Premier téléchargement
 
-URL média déjà connue (`.m3u8` / `.mpd` / `.mp4`) :
+> **`download` ou `fetch` ?** L'adresse d'une page web (ce que montre la barre du
+> navigateur) va à **`fetch`**. **`download`** n'accepte qu'une URL de flux
+> (`.m3u8` / `.mpd` / `.mp4`) et refuse une page avec
+> « URL does not look like a downloadable media manifest/file ».
+
+Page web → trouver le flux et le télécharger (le flux est aussi cherché dans
+l'iframe du lecteur vidéo, un niveau) :
+
+```bash
+streamcraft fetch 'https://watch.example/episode/1' --auto-download \
+  --title 'Example' --out ~/Downloads/StreamCraft
+```
+
+Si `fetch` ne trouve rien, le flux est construit par le JavaScript de la page :
+ouvrir la page dans l'app (son navigateur lance le lecteur et liste les flux),
+puis copier l'URL `.m3u8` vers `download`.
+
+URL de flux déjà connue (`.m3u8` / `.mpd` / `.mp4`) :
 
 ```bash
 streamcraft download 'https://cdn.example/video/master.m3u8' \
@@ -76,11 +93,10 @@ Mode script / agent (`--json`) — succès = dernière ligne utile avec `complet
 streamcraft download 'https://cdn.example/video/master.m3u8' --json --title 'Example'
 ```
 
-Page HTML → découvrir le flux :
+Page HTML → seulement lister les flux :
 
 ```bash
 streamcraft fetch 'https://watch.example/episode/1' --detect-only --json
-streamcraft fetch 'https://watch.example/episode/1' --auto-download --json
 ```
 
 ---
@@ -98,7 +114,7 @@ streamcraft fetch 'https://watch.example/episode/1' --auto-download --json
 | Nouveautés des hubs favoris (RSS) | `flix digest` / `flix scan` |
 | Choisir une entrée du digest | `flix pick 1` ou `flix pick 1,3 --enqueue` |
 | Suivre / attendre / annuler un job | `status` / `wait` / `cancel` |
-| Déclencher l’app GUI (si ouverte) | `--via-app` ou `ping` / `open` |
+| Déclencher l’app GUI (si ouverte) | `ping` / `open` (`--via-app` : pas encore traité par l’app, la CLI retombe sur `fetch` simple) |
 
 Règle simple : **URL fichier média → `download`**. **URL page HTML → `fetch`**. **Nom de série ou page saison → `season`**. **Hubs / « quoi de neuf ? » → `flix`** (pas `fetch` sur la homepage).
 
@@ -199,7 +215,7 @@ Ensuite l’utilisateur répond `1` / `2,4` → `flix pick … --enqueue --json`
 
 ```
 streamcraft download <url> [options]
-streamcraft fetch <pageURL> [--detect-only|--auto-download] [options]
+streamcraft fetch <pageURL> [--detect-only|--auto-download] [--title T] [--out DIR] [options]
 streamcraft season <pageURL|showName> [--list-only|--auto-download] [--show NAME] [--season N] [options]
 streamcraft flix scan|digest|bootstrap|seen|pick … [options]
 streamcraft status [jobId]
@@ -293,7 +309,7 @@ Si `count: 0` : stdout vide (silence), exit 0.
 | `--timeout <sec>` | `45` | Timeout détection `fetch` / page |
 | `--quality best\|ask` | `best` | Préférence HLS |
 | `--shared-db` | off | DB partagée avec l’app GUI |
-| `--via-app` | off | Écrit l’inbox GUI au lieu d’exécuter |
+| `--via-app` | off | Écrit l’inbox GUI ; pas encore traité par l’app GUI (repli sur le scraping simple) |
 | `--max <n>` | `8` (`digest`) | Plafond items (`flix scan` / `digest`) |
 | `--since <ISO\|Nd>` | — | Filtre `scan` (ex. `7d`, `2026-10-01T00:00:00Z`) |
 | `--mark-seen` | off | `flix digest` : marque les items proposés comme vus |

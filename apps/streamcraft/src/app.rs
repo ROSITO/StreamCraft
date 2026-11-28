@@ -165,6 +165,14 @@ impl StreamCraftApp {
         }
     }
 
+    fn history_step(&mut self, back: bool) {
+        if let Some(b) = &self.browser {
+            if let Err(e) = b.history_step(back) {
+                self.status_line = format!("Navigation failed: {e}");
+            }
+        }
+    }
+
     fn open_bookmark_url(&mut self, url: String) {
         self.url_input = url;
         self.tab = NavTab::Browse;
@@ -368,10 +376,9 @@ impl StreamCraftApp {
                     self.status_line = t;
                 }
                 BrowserMessage::PageUrl(u) => {
-                    self.page_url = Some(u.clone());
-                    if self.url_input.trim().is_empty() || self.url_input.starts_with("http") {
-                        // keep bar in sync when navigating in-page
-                    }
+                    // Keep the bar on the page actually shown (links, Back/Forward).
+                    self.url_input = u.clone();
+                    self.page_url = Some(u);
                     self.refresh_cookies();
                 }
                 BrowserMessage::Candidate {
@@ -638,10 +645,32 @@ impl eframe::App for StreamCraftApp {
         self.drain_browser();
         self.drain_events();
         self.poll_jobs();
-        ctx.request_repaint_after(std::time::Duration::from_millis(200));
+        // Linux: WebKitGTK only runs when pump_gtk does, i.e. once per egui frame.
+        // At the 200 ms idle cadence pages loaded and scrolled at 5 fps.
+        let gtk_live = cfg!(any(
+            target_os = "linux",
+            target_os = "dragonfly",
+            target_os = "freebsd",
+            target_os = "netbsd",
+            target_os = "openbsd"
+        )) && self.tab == NavTab::Browse
+            && self.browser.is_some();
+        ctx.request_repaint_after(std::time::Duration::from_millis(if gtk_live { 16 } else { 200 }));
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        // Alt+←/→: page history, unless a text field is using the keys.
+        if self.tab == NavTab::Browse && !ui.ctx().egui_wants_keyboard_input() {
+            let (back, fwd) = ui.input(|i| {
+                (
+                    i.modifiers.alt && i.key_pressed(egui::Key::ArrowLeft),
+                    i.modifiers.alt && i.key_pressed(egui::Key::ArrowRight),
+                )
+            });
+            if back || fwd {
+                self.history_step(back);
+            }
+        }
         // Clipboard paste into URL field (Cmd/Ctrl+V when Browse)
         if self.tab == NavTab::Browse {
             let paste = ui.input(|i| {
@@ -830,12 +859,55 @@ impl eframe::App for StreamCraftApp {
     }
 }
 
+/// Five-point star: filled accent when `filled`, muted outline otherwise.
+fn paint_star(painter: &egui::Painter, c: egui::Pos2, r: f32, filled: bool) {
+    let pts: Vec<egui::Pos2> = (0..10)
+        .map(|i| {
+            let a = std::f32::consts::PI * (i as f32 / 5.0) - std::f32::consts::FRAC_PI_2;
+            let rr = if i % 2 == 0 { r } else { r * 0.45 };
+            c + egui::vec2(a.cos() * rr, a.sin() * rr)
+        })
+        .collect();
+    if filled {
+        // Concave: fill as triangles from the centre.
+        for i in 0..10 {
+            painter.add(egui::Shape::convex_polygon(
+                vec![c, pts[i], pts[(i + 1) % 10]],
+                ACCENT,
+                egui::Stroke::NONE,
+            ));
+        }
+    } else {
+        painter.add(egui::Shape::closed_line(pts, egui::Stroke::new(1.5, MUTED)));
+    }
+}
+
 fn browse_with_webview(ui: &mut egui::Ui, app: &mut StreamCraftApp) -> egui::Rect {
     egui::Panel::top("browse_chrome")
         .exact_size(56.0)
         .show(ui, |ui| {
             ui.horizontal_centered(|ui| {
                 ui.add_space(12.0);
+                // Chevrons drawn too: no arrow glyphs in the bundled fonts either.
+                for (tip, back) in [("Back (Alt+←)", true), ("Forward (Alt+→)", false)] {
+                    let enabled = app.browser.is_some();
+                    let b = ui.add_enabled(
+                        enabled,
+                        egui::Button::new("")
+                            .fill(theme::ELEVATED)
+                            .corner_radius(egui::CornerRadius::same(8))
+                            .min_size(egui::vec2(32.0, 36.0)),
+                    );
+                    let c = b.rect.center();
+                    let dx = if back { 3.0 } else { -3.0 };
+                    ui.painter().add(egui::Shape::line(
+                        vec![c + egui::vec2(dx, -6.0), c + egui::vec2(-dx, 0.0), c + egui::vec2(dx, 6.0)],
+                        egui::Stroke::new(2.0, if enabled { theme::TEXT } else { MUTED }),
+                    ));
+                    if b.on_hover_text(tip).clicked() {
+                        app.history_step(back);
+                    }
+                }
                 let field_w = (ui.available_width() - 360.0).max(160.0);
                 let resp = ui.add(
                     egui::TextEdit::singleline(&mut app.url_input)
@@ -845,17 +917,14 @@ fn browse_with_webview(ui: &mut egui::Ui, app: &mut StreamCraftApp) -> egui::Rec
                 );
                 let page = app.current_page_url();
                 let starred = !page.is_empty() && app.bookmarks.is_bookmarked(&page);
-                let star_label = if starred { "★" } else { "☆" };
+                // Drawn, not a glyph: the bundled fonts have no ★/☆ (showed as ▯).
                 let star = ui.add(
-                    egui::Button::new(
-                        egui::RichText::new(star_label)
-                            .color(if starred { ACCENT } else { MUTED })
-                            .size(18.0),
-                    )
-                    .fill(theme::ELEVATED)
-                    .corner_radius(egui::CornerRadius::same(8))
-                    .min_size(egui::vec2(36.0, 36.0)),
+                    egui::Button::new("")
+                        .fill(theme::ELEVATED)
+                        .corner_radius(egui::CornerRadius::same(8))
+                        .min_size(egui::vec2(36.0, 36.0)),
                 );
+                paint_star(ui.painter(), star.rect.center(), 8.0, starred);
                 if star
                     .on_hover_text(if starred {
                         "Remove from favorites"

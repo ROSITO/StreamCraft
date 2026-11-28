@@ -5289,7 +5289,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "streamcraft-app"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "anyhow",
  "chrono",
@@ -5321,7 +5321,7 @@ dependencies = [
 
 [[package]]
 name = "streamcraft-cli"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "anyhow",
  "cap-std",
@@ -5345,7 +5345,7 @@ dependencies = [
 
 [[package]]
 name = "streamcraft-core"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "anyhow",
  "bytes",
@@ -5368,7 +5368,7 @@ dependencies = [
 
 [[package]]
 name = "streamcraft-ffmpeg"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "anyhow",
  "dirs",

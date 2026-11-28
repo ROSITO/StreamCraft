@@ -57,6 +57,7 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    /// Download a stream URL (.m3u8 / .mpd / .mp4). For a web page, use `fetch`.
     Download {
         url: String,
         #[arg(long)]
@@ -64,6 +65,7 @@ enum Commands {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    /// Find the streams on a web page (player iframes included); --auto-download saves the first.
     Fetch {
         page_url: String,
         #[arg(long)]
@@ -72,6 +74,8 @@ enum Commands {
         auto_download: bool,
         #[arg(long)]
         title: Option<String>,
+        #[arg(long)]
+        out: Option<PathBuf>,
     },
     Season {
         show_or_url: String,
@@ -366,7 +370,11 @@ async fn run(cli: Cli, opts: &SessionOpts) -> Result<ExitCode> {
             detect_only,
             auto_download,
             title,
+            out,
         } => {
+            if let Some(dir) = out {
+                prefs.export_dir = dir;
+            }
             cmd_fetch(&prefs, &page_url, detect_only, auto_download, title, opts).await
         }
         Commands::Season {
@@ -910,10 +918,11 @@ async fn cmd_fetch(
         let t = title.clone().or_else(|| PageScraper::extract_title(&html));
         (html, t)
     };
-    let mut candidates = PageScraper::extract_candidates(&html, &page);
     let client = reqwest::Client::builder()
         .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15")
         .build()?;
+    let candidates = PageScraper::extract_candidates(&html, &page);
+    let mut candidates = resolve_player_iframes(&client, candidates, &page).await;
     if let Some(news_id) = extract_news_id(&html, &page) {
         if let Ok(catalog) = fetch_series_catalog(&client, &page, &news_id).await {
             let mut ordered = catalog.episodes;
@@ -957,16 +966,69 @@ async fn cmd_fetch(
         });
     }
     if auto_download {
-        let first = &candidates[0];
+        let Some(first) = candidates.iter().find(|c| is_downloadable(c)) else {
+            bail!("no downloadable stream found on this page (only pages/iframes)");
+        };
         let o = SessionOpts {
             cookie: opts.cookie.clone(),
-            referer: opts.referer.clone().or(Some(page_url.to_string())),
+            // Streams found inside a player iframe expect the iframe as referer.
+            referer: opts.referer.clone().or_else(|| {
+                Some(first.page_url.as_ref().map_or(page_url.to_string(), |u| u.to_string()))
+            }),
             via_app: opts.via_app,
             json: opts.json,
         };
         return download_url(prefs, first.url.as_str(), page_title, &o).await;
     }
     Ok(ExitCode::Ok)
+}
+
+fn is_downloadable(c: &NetworkMediaCandidate) -> bool {
+    !matches!(
+        MediaDetector::classify(&c.url, c.mime_type.as_deref()),
+        MediaClassification::Unknown | MediaClassification::Segment
+    )
+}
+
+/// Many watch pages hold only a player `<iframe>`; the stream URL sits in the
+/// iframe's own HTML. Each non-media candidate is fetched once (Referer = page)
+/// and replaced by the streams it contains; at most 4 iframes, one level deep.
+async fn resolve_player_iframes(
+    client: &reqwest::Client,
+    candidates: Vec<NetworkMediaCandidate>,
+    page: &Url,
+) -> Vec<NetworkMediaCandidate> {
+    let mut out = Vec::new();
+    let mut tried = 0;
+    for c in candidates {
+        if is_downloadable(&c) || tried >= 4 {
+            out.push(c);
+            continue;
+        }
+        tried += 1;
+        let html = async {
+            client.get(c.url.clone()).header("Referer", page.as_str()).send().await?
+                .error_for_status()?.text().await
+        }
+        .await;
+        let streams: Vec<_> = html
+            .map(|h| PageScraper::extract_candidates(&h, &c.url))
+            .unwrap_or_default()
+            .into_iter()
+            .filter(is_downloadable)
+            .map(|mut s| {
+                s.page_url = Some(c.url.clone());
+                s
+            })
+            .collect();
+        if streams.is_empty() {
+            out.push(c);
+        } else {
+            // Streams first so --auto-download picks them over the iframe.
+            out.splice(0..0, streams);
+        }
+    }
+    out
 }
 
 async fn download_url(
@@ -981,7 +1043,9 @@ async fn download_url(
         classification,
         MediaClassification::Unknown | MediaClassification::Segment
     ) {
-        bail!("URL does not look like a downloadable media manifest/file");
+        bail!(
+            "URL does not look like a downloadable media manifest/file; for a web page use `streamcraft fetch <url> --auto-download`"
+        );
     }
 
     let mut candidate = NetworkMediaCandidate::new(media_url.clone(), "cli");
@@ -1188,5 +1252,38 @@ async fn download_url(
                 ExitCode::Network
             })
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::{Read, Write};
+
+    /// A page that only embeds a player iframe: fetch must open the iframe and
+    /// surface its stream, with the iframe as the stream's page (referer).
+    #[tokio::test]
+    async fn player_iframe_stream_is_surfaced() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            let (mut s, _) = listener.accept().unwrap();
+            let mut buf = [0u8; 2048];
+            let n = s.read(&mut buf).unwrap();
+            let req = String::from_utf8_lossy(&buf[..n]).to_string();
+            assert!(req.to_ascii_lowercase().contains("referer: https://watch.example/film/1"));
+            let body = "<script>var f='https://cdn.example/files/aa/x.m3u8';</script>";
+            write!(s, "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{body}", body.len()).unwrap();
+        });
+        let page = Url::parse("https://watch.example/film/1").unwrap();
+        let iframe = Url::parse(&format!("http://127.0.0.1:{port}/iframe/abc")).unwrap();
+        let mut c = NetworkMediaCandidate::new(iframe.clone(), "scrape");
+        c.page_url = Some(page.clone());
+        assert!(!is_downloadable(&c));
+
+        let out = resolve_player_iframes(&reqwest::Client::new(), vec![c], &page).await;
+        assert_eq!(out[0].url.as_str(), "https://cdn.example/files/aa/x.m3u8");
+        assert_eq!(out[0].page_url.as_ref(), Some(&iframe));
+        assert!(is_downloadable(&out[0]));
     }
 }

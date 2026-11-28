@@ -114,18 +114,35 @@ streamcraft doctor
 
 ### CLI quick start
 
+**A web page** (the address in your browser bar): use `fetch`. It finds the
+stream on the page, including inside the video player's iframe.
+
 ```bash
-streamcraft download 'https://example.com/video/master.m3u8' \
+streamcraft fetch 'https://example.com/watch/my-video' --auto-download \
   --title 'My Video' --out ~/Downloads/StreamCraft
 
-streamcraft download 'https://example.com/video/master.m3u8' --json --title 'My Video'
-# → … {"type":"completed",…,"path":"…"}
+# only list what it finds
+streamcraft fetch 'https://example.com/watch/my-video' --detect-only
 ```
+
+**A stream URL** you already have (`.m3u8`, `.mpd`, `.mp4`, e.g. copied from the
+app's Detected panel): use `download`. It refuses web pages.
+
+```bash
+streamcraft download 'https://cdn.example.com/video/master.m3u8' \
+  --referer 'https://example.com/watch/my-video' \
+  --title 'My Video' --out ~/Downloads/StreamCraft
+```
+
+Add `--json` for one JSON event per line (last line: `{"type":"completed",…,"path":"…"}`).
+If `fetch` finds nothing (streams built by the page's JavaScript), open the page
+in the app instead: its browser runs the player and lists the streams.
 
 | Need | Command |
 |------|---------|
-| Page → find stream | `streamcraft fetch <url> --detect-only` |
-| Page → download | `streamcraft fetch <url> --auto-download` |
+| Web page → download | `streamcraft fetch <url> --auto-download` |
+| Web page → list streams | `streamcraft fetch <url> --detect-only` |
+| Stream URL (`.m3u8` / `.mpd` / `.mp4`) → download | `streamcraft download <url>` |
 | Season | `streamcraft season 'Show' --season 1` |
 | What’s new | `streamcraft flix digest --json` |
 | Jobs | `streamcraft status` / `wait` / `cancel` |

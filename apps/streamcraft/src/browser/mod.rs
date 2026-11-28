@@ -236,7 +236,8 @@ impl EmbeddedBrowser {
                 true
             })
             .with_on_page_load_handler(move |_event, url| {
-                if !url.is_empty() {
+                // Skip about:blank & co: the URL bar now mirrors these messages.
+                if url.starts_with("http://") || url.starts_with("https://") {
                     let _ = tx_load.send(BrowserMessage::PageUrl(url));
                 }
             })
@@ -328,6 +329,13 @@ impl EmbeddedBrowser {
         self.webview
             .load_url(url)
             .map_err(|e| anyhow::anyhow!("load: {e}"))
+    }
+
+    /// Page history (wry has no back/forward API).
+    pub fn history_step(&self, back: bool) -> anyhow::Result<()> {
+        self.webview
+            .evaluate_script(if back { "history.back()" } else { "history.forward()" })
+            .map_err(|e| anyhow::anyhow!("history: {e}"))
     }
 
     pub fn set_bounds(&self, bounds: egui::Rect) -> anyhow::Result<()> {

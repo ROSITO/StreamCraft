@@ -54,7 +54,7 @@ pub fn show(
                             state.error = None;
                         }
                     } else if theme::primary_button(ui, "+ Add site").clicked() {
-                        begin_add(state, current_url, current_title);
+                        begin_add(state);
                     }
                 });
             });
@@ -72,7 +72,7 @@ pub fn show(
             if state.adding {
                 add_form(ui, store, state, current_url, current_title);
             } else if store.items.is_empty() {
-                empty_state(ui, state, current_url, current_title);
+                empty_state(ui, state);
             } else {
                 list(ui, store, state, &mut action);
             }
@@ -81,14 +81,12 @@ pub fn show(
     action
 }
 
-fn begin_add(state: &mut BookmarksUi, current_url: &str, current_title: &str) {
+/// Empty form: the star in the Browse bar adds the current page, and the form's
+/// "Use current page" button fills it on demand.
+fn begin_add(state: &mut BookmarksUi) {
     state.adding = true;
-    state.add_title = current_title.trim().to_string();
-    state.add_url = if current_url.trim().is_empty() {
-        "https://".into()
-    } else {
-        current_url.to_string()
-    };
+    state.add_title.clear();
+    state.add_url.clear();
     state.as_hub = true;
     state.error = None;
 }
@@ -102,12 +100,7 @@ fn coerce_https(url: &str) -> String {
     }
 }
 
-fn empty_state(
-    ui: &mut egui::Ui,
-    state: &mut BookmarksUi,
-    current_url: &str,
-    current_title: &str,
-) {
+fn empty_state(ui: &mut egui::Ui, state: &mut BookmarksUi) {
     ui.horizontal(|ui| {
         ui.add_space(24.0);
         ui.vertical(|ui| {
@@ -119,7 +112,7 @@ fn empty_state(
             );
             ui.add_space(12.0);
             if theme::primary_button(ui, "Add a site…").clicked() {
-                begin_add(state, current_url, current_title);
+                begin_add(state);
             }
         });
     });
