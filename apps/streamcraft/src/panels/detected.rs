@@ -48,7 +48,10 @@ pub fn show(ui: &mut egui::Ui, detected: &[DetectedMedia]) -> DetectedAction {
                     .stroke(egui::Stroke::new(1.0, BORDER))
                     .corner_radius(10.0)
                     .inner_margin(12.0)
+                    .outer_margin(egui::Margin::symmetric(12, 0))
                     .show(ui, |ui| {
+                        // Every card spans the panel; long text is cut, not widening it.
+                        ui.set_width(ui.available_width());
                         ui.label(
                             RichText::new(detect::kind_label(m.kind))
                                 .color(ACCENT)
@@ -56,14 +59,20 @@ pub fn show(ui: &mut egui::Ui, detected: &[DetectedMedia]) -> DetectedAction {
                                 .strong(),
                         );
                         if let Some(t) = &m.suggested_title {
-                            ui.label(RichText::new(t).color(TEXT).size(13.0).strong());
+                            ui.add(
+                                egui::Label::new(RichText::new(t).color(TEXT).size(13.0).strong())
+                                    .truncate(),
+                            );
                         }
                         ui.add_space(4.0);
-                        ui.label(
-                            RichText::new(m.source_url.as_str())
-                                .color(MUTED)
-                                .monospace()
-                                .size(11.0),
+                        ui.add(
+                            egui::Label::new(
+                                RichText::new(m.source_url.as_str())
+                                    .color(MUTED)
+                                    .monospace()
+                                    .size(11.0),
+                            )
+                            .truncate(), // egui shows the full URL on hover
                         );
                         if let Some(n) = m.segment_count {
                             ui.label(RichText::new(format!("{n} segments")).color(MUTED).size(11.0));

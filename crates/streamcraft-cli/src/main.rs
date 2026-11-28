@@ -1197,6 +1197,8 @@ async fn download_url(
     // Cooperative cancel: poll store while running in a select-ish loop via spawn
     let run = service.run_job(job_id);
     tokio::pin!(run);
+    // Last (state, whole percent) reported: one progress line per change.
+    let mut last = ("queued".to_string(), 0i64);
     let result = loop {
         if CliJobStore::is_cancel_requested(job_id) {
             let _ = service.queue.cancel(job_id).await;
@@ -1206,6 +1208,25 @@ async fn download_url(
             _ = tokio::time::sleep(Duration::from_millis(500)) => {
                 if CliJobStore::is_cancel_requested(job_id) {
                     let _ = service.queue.cancel(job_id).await;
+                }
+                if let Some(job) = service.queue.get(job_id).await {
+                    let now = (format!("{:?}", job.state).to_lowercase(), (job.progress * 100.0) as i64);
+                    if now != last {
+                        AgentEvent::Progress {
+                            job_id: job_id.to_string(),
+                            progress: job.progress,
+                            state: now.0.clone(),
+                        }
+                        .emit();
+                        let _ = CliJobStore::update(|store| {
+                            if let Some(j) = store.get_mut(job_id) {
+                                j.state = now.0.clone();
+                                j.progress = job.progress;
+                                j.updated_at = Utc::now();
+                            }
+                        });
+                        last = now;
+                    }
                 }
             }
         }
