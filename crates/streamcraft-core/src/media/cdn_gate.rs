@@ -37,18 +37,21 @@ pub fn asset_key(url: &Url) -> String {
     )
 }
 
-/// Same CDN directory (parent of playlist/segment file), ignoring query tokens.
+/// Same stream seen twice, ignoring query tokens: the same playlist file, or any
+/// file of one gated per-video directory (vidzy `…/,e94,.urlset/master.m3u8` and
+/// `index-v1-a2.m3u8`). A shared flat directory (`/files/aa/<id>.m3u8`, one file
+/// per film) is not a family: two films there are two streams.
 pub fn same_stream_family(a: &Url, b: &Url) -> bool {
     if a.host_str() != b.host_str() {
         return false;
     }
-    let pa = dirname(a.path());
-    let pb = dirname(b.path());
-    !pa.is_empty() && pa == pb
+    let (pa, fa) = split_path(a.path());
+    let (pb, fb) = split_path(b.path());
+    !pa.is_empty() && pa == pb && (fa == fb || (looks_gated_cdn(a) && looks_gated_cdn(b)))
 }
 
-fn dirname(path: &str) -> &str {
-    path.rsplit_once('/').map(|(d, _)| d).unwrap_or(path)
+fn split_path(path: &str) -> (&str, &str) {
+    path.rsplit_once('/').unwrap_or((path, ""))
 }
 
 /// Ensure `url` carries `gk=<token>` when missing.
@@ -170,7 +173,7 @@ pub fn suggest_urlset_audio_siblings(
     if file.contains("index-a") && !file.contains("index-v") {
         return Vec::new();
     }
-    let parent = dirname(video_playlist.path());
+    let parent = split_path(video_playlist.path()).0;
     let query = video_playlist.query().map(|q| q.to_string());
     let mk = |name: &str| -> Option<Url> {
         let mut u = video_playlist.clone();
@@ -230,6 +233,12 @@ mod tests {
                 .parse()
                 .unwrap();
         assert!(same_stream_family(&master, &media));
+        // One flat CDN directory holding many films: different files, different streams.
+        let film2: Url = "https://share86131.sharecloudy.com/files/aa/7gYQk4mul8.m3u8".parse().unwrap();
+        let film3: Url = "https://share86131.sharecloudy.com/files/aa/Zq81LmPx0a.m3u8".parse().unwrap();
+        assert!(!same_stream_family(&film2, &film3));
+        let film2_again: Url = "https://share86131.sharecloudy.com/files/aa/7gYQk4mul8.m3u8?t=2".parse().unwrap();
+        assert!(same_stream_family(&film2, &film2_again));
         assert!(needs_player_unlock(&master));
         assert!(needs_player_unlock(&cold_media));
         assert!(!needs_player_unlock(&media));

@@ -67,6 +67,8 @@ pub struct StreamCraftApp {
     rt: tokio::runtime::Runtime,
     roles_count: usize,
     last_browser_bounds: Option<egui::Rect>,
+    /// Frames left during which bounds are resent after the browser reappears.
+    rebound_frames: u8,
     page_url: Option<String>,
     page_title: Option<String>,
     cookie_snapshot: SessionCredentialSnapshot,
@@ -132,6 +134,7 @@ impl StreamCraftApp {
             rt,
             roles_count,
             last_browser_bounds: None,
+            rebound_frames: 0,
             page_url: None,
             page_title: None,
             cookie_snapshot: SessionCredentialSnapshot::empty(),
@@ -210,12 +213,17 @@ impl StreamCraftApp {
         let Some(browser) = &self.browser else {
             return;
         };
-        let _ = browser.set_visible(show && self.sheet.is_none() && self.sync.is_none());
-        if show {
-            if self.last_browser_bounds != Some(bounds) {
-                let _ = browser.set_bounds(bounds);
-                self.last_browser_bounds = Some(bounds);
-            }
+        let visible = show && self.sheet.is_none() && self.sync.is_none();
+        let _ = browser.set_visible(visible);
+        if !visible {
+            // Re-showing a GTK child can reset its size (Linux, maybe a frame
+            // later): resend bounds for a few frames once it is back.
+            self.rebound_frames = 3;
+        }
+        if visible && (self.rebound_frames > 0 || self.last_browser_bounds != Some(bounds)) {
+            let _ = browser.set_bounds(bounds);
+            self.last_browser_bounds = Some(bounds);
+            self.rebound_frames = self.rebound_frames.saturating_sub(1);
         }
     }
 

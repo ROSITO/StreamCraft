@@ -15,8 +15,8 @@ default-members = [
 
 [workspace.package]
 # Workspace version → streamcraft-app / CLI binaries (cargo). No secrets.
-# 0.4.4: smooth Linux browsing, Back/Forward, empty bookmark form, CLI fetch follows player iframes.
-version = "0.4.4"
+# 0.4.5: second film on the same CDN folder detected; webview bounds resent after re-show.
+version = "0.4.5"
 edition = "2024"
 license = "MIT"
 authors = ["StreamCraft contributors"]
