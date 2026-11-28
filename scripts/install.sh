@@ -26,11 +26,11 @@ data = json.load(sys.stdin)
 assets = data.get("assets") or []
 for asset in assets:
     name = asset.get("name") or ""
-    if name.endswith(".zip"):
+    if name.startswith("StreamCraft.app-macos") and name.endswith(".zip"):
         print(asset["browser_download_url"])
         break
 else:
-    sys.exit("Aucun zip dans la dernière release.")
+    sys.exit("Aucun StreamCraft.app-macos-*.zip dans la dernière release.")
 ')"
 
 TMP="$(mktemp -d)"

@@ -15,8 +15,8 @@ default-members = [
 
 [workspace.package]
 # Workspace version → streamcraft-app / CLI binaries (cargo). No secrets.
-# 0.4.0: audit fixes, DASH, scheduler, Sync sheet, bundled + on-demand FFmpeg.
-version = "0.4.0"
+# 0.4.1: Linux Wayland launch crash (GTK forced to X11 like winit).
+version = "0.4.1"
 edition = "2024"
 license = "MIT"
 authors = ["StreamCraft contributors"]
